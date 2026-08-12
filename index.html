@@ -140,6 +140,9 @@
 // Apps Script doGet() Web App endpoint -- computed fresh on every request,
 // no publish-cache lag. Replaced the old Sheets "Publish to web" CSV link;
 // see docs/adr/adr-0005-apps-script-proxy-not-publish-to-web.md.
+// https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec is substituted with the real endpoint by the deploy pipeline
+// (CSV_URL Actions secret) -- see docs/adr/adr-0012-csv-url-secret-substitution.md.
+// This literal placeholder is never a working URL; that's expected here.
 const CSV_URL = "https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec";
 const PITCHES = [
   { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8' },
