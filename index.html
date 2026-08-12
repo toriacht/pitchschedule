@@ -141,6 +141,18 @@
   .booking-time { font-size: 0.72rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .booking-team { font-weight: 700; font-size: 0.9rem; margin-top: 1px; line-height: 1.25; }
   .booking-opponent { font-size: 0.76rem; color: var(--muted); margin-top: 1px; }
+  .booking-card { cursor: pointer; }
+
+  /* ---- tap-to-expand detail dialog (mobile cards only) ---- */
+  .booking-detail { border: none; border-radius: 16px; padding: 22px; width: calc(100% - 56px); max-width: 360px; box-shadow: 0 12px 32px rgba(15,23,42,0.25); }
+  .booking-detail::backdrop { background: rgba(15,23,42,0.5); }
+  .detail-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 999px; border: none; background: var(--panel2); color: var(--muted); font-size: 0.9rem; cursor: pointer; }
+  .detail-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .detail-top .pitch-pill, .detail-top .type-badge { font-size: 0.78rem; padding: 3px 11px; }
+  .detail-team { font-weight: 700; font-size: 1.3rem; line-height: 1.3; margin-bottom: 6px; }
+  .detail-datetime { font-size: 1rem; color: var(--muted); margin-bottom: 4px; }
+  .detail-opponent { font-size: 1rem; color: var(--text); margin-bottom: 12px; }
+  .detail-sentence { font-size: 0.9rem; color: var(--muted); line-height: 1.5; margin: 0; padding-top: 12px; border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -174,6 +186,15 @@
 <div id="panels"></div>
 </div>
 
+<dialog id="bookingDetail" class="booking-detail">
+  <button class="detail-close" id="detailClose" aria-label="Close">✕</button>
+  <div class="detail-top" id="detailTop"></div>
+  <div class="detail-team" id="detailTeam"></div>
+  <div class="detail-datetime" id="detailDatetime"></div>
+  <div class="detail-opponent" id="detailOpponent"></div>
+  <p class="detail-sentence" id="detailSentence"></p>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ============ CONFIG ============
@@ -200,6 +221,10 @@ const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGG
 let allRows = [];
 let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
 let matchesOnly = false;
+// The currently-rendered (filtered) rows, in the same order as the mobile
+// cards' data-idx -- lets the tap-to-expand dialog look up full row detail
+// without re-parsing anything from the DOM.
+let scheduleRows = [];
 // Set true only around the render() call inside loadData() so the NOW dots
 // pulse once on an actual data refresh -- not on every search keystroke or
 // filter click, which also call render() but aren't a real sync event.
@@ -407,6 +432,8 @@ function renderSchedule() {
     .filter(r => !matchesOnly || r.Type === 'Match')
     .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start || 0) - (b.time?.start || 0)));
 
+  scheduleRows = rows;
+
   const panel = document.createElement('div');
   if (!rows.length) {
     panel.innerHTML = `<div class="empty-msg">No ${descParts.length ? descParts.join(' ') : 'sessions'} in the next 8 days.</div>`;
@@ -437,7 +464,7 @@ function renderSchedule() {
     // ---- mobile: compact cards, grouped by day ----
     let cardsHtml = '<div class="mobile-schedule">';
     let lastDateKey = null;
-    rows.forEach(r => {
+    rows.forEach((r, idx) => {
       const dateKey = r.dateObj.toDateString();
       if (dateKey !== lastDateKey) {
         cardsHtml += `<div class="day-heading">${fmtDayHeading(r.dateObj, now)}</div>`;
@@ -449,7 +476,7 @@ function renderSchedule() {
       const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
       const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};">${pitchName}</span>` : '';
-      cardsHtml += `<div class="booking-card" style="--pitch-color:${border};">
+      cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
           <div class="booking-left">${pitchPill}<span class="booking-time">${r.Time || ''}</span></div>
           <span class="type-badge ${typeClass}">${r.Type}</span>
@@ -472,11 +499,52 @@ function render() {
 }
 
 document.getElementById('search').addEventListener('input', render);
+// Blurring on Enter is what actually dismisses the on-screen keyboard on
+// mobile -- nothing does that by default for a bare (non-form) input.
+document.getElementById('search').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') e.target.blur();
+});
 document.getElementById('matchesToggle').addEventListener('click', () => {
   matchesOnly = !matchesOnly;
   document.getElementById('matchesToggle').classList.toggle('active', matchesOnly);
   render();
 });
+
+// ---------- Tap-to-expand on mobile schedule cards ----------
+// #panels itself never gets replaced (only its contents do on each render),
+// so one delegated listener here covers every card across every re-render.
+const bookingDetail = document.getElementById('bookingDetail');
+document.getElementById('panels').addEventListener('click', (e) => {
+  const card = e.target.closest('.booking-card');
+  if (!card) return;
+  const r = scheduleRows[Number(card.dataset.idx)];
+  if (!r) return;
+
+  const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
+  const pitchName = rowPitchDef ? rowPitchDef.name : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away fixture');
+  const fill = rowPitchDef ? rowPitchDef.solid : '#64748b';
+  const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
+
+  document.getElementById('detailTop').innerHTML =
+    `<span class="pitch-pill" style="background:${fill};">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
+  document.getElementById('detailTeam').textContent = r.Team;
+  document.getElementById('detailDatetime').textContent =
+    `${fmtDayHeading(r.dateObj, new Date())}${r.Time ? ' · ' + r.Time : ''}`;
+  const opponentEl = document.getElementById('detailOpponent');
+  if (r.Opponent) { opponentEl.textContent = 'vs ' + r.Opponent; opponentEl.style.display = ''; }
+  else { opponentEl.style.display = 'none'; }
+  // Details is the original email sentence -- the only place it's ever
+  // shown; the compact card and table both only show the parsed-out fields.
+  const sentenceEl = document.getElementById('detailSentence');
+  if (r.Details) { sentenceEl.textContent = r.Details; sentenceEl.style.display = ''; }
+  else { sentenceEl.style.display = 'none'; }
+
+  bookingDetail.showModal();
+});
+document.getElementById('detailClose').addEventListener('click', () => bookingDetail.close());
+// Clicking the backdrop registers as a click on the <dialog> element itself
+// (not any of its content) -- the standard way to detect a backdrop click.
+bookingDetail.addEventListener('click', (e) => { if (e.target === bookingDetail) bookingDetail.close(); });
 
 // ---------- Install prompt (friendlier than expecting people to find the
 // browser's menu themselves) ----------
