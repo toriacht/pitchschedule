@@ -90,6 +90,14 @@
   .slot-team { font-weight: 700; font-size: 1.05rem; }
   .slot-meta { font-size: 0.85rem; color: var(--muted); }
   .highlight { outline: 2px solid var(--accent); }
+  /* One-shot pulse on the ● dot, fired only on an actual data refresh (see
+     justSynced in the script below) -- not a continuous blink. A dot that
+     blinked forever would both misrepresent freshness (data only changes on
+     a 5-min poll, sometimes hours behind) and run into WCAG's "Pause, Stop,
+     Hide" rule for indefinite blinking content. This fires once and stops. */
+  @keyframes pulse-live { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.25; transform: scale(1.5); } }
+  .pulse-once { display: inline-block; animation: pulse-live 0.8s ease-in-out; }
+  @media (prefers-reduced-motion: reduce) { .pulse-once { animation: none; } }
 
   .empty-msg { color: var(--muted); padding: 24px; text-align: center; }
   .pitch-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
@@ -161,6 +169,10 @@ const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGG
 let allRows = [];
 let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
 let matchesOnly = false;
+// Set true only around the render() call inside loadData() so the NOW dots
+// pulse once on an actual data refresh -- not on every search keystroke or
+// filter click, which also call render() but aren't a real sync event.
+let justSynced = false;
 
 // NOTE: source email times have no AM/PM. If a time is already unambiguous
 // 24-hour (e.g. "18:30"), it's used as-is. Otherwise these club-pattern
@@ -243,7 +255,9 @@ async function loadData() {
   const fmtOpts = { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' };
   document.getElementById('syncPill').textContent = `🕒 Next sync ${nextSyncTime().toLocaleString('en-IE', fmtOpts)}`;
 
+  justSynced = true;
   render();
+  justSynced = false;
 }
 
 function currentFilter() {
@@ -251,6 +265,7 @@ function currentFilter() {
 }
 
 function renderNowNext() {
+  const dot = `<span class="${justSynced ? 'pulse-once' : ''}">●</span>`;
   const grid = document.getElementById('nowNextGrid');
   grid.style.display = 'grid';
   const now = new Date();
@@ -278,12 +293,12 @@ function renderNowNext() {
     if (nowEvent) {
       const match = filter && nowEvent.Team.toLowerCase().includes(filter);
       html += `<div class="slot now ${match ? 'highlight' : ''}">
-        <div class="slot-label now-label">● Now</div>
+        <div class="slot-label now-label">${dot} Now</div>
         <div class="slot-team">${nowEvent.Team}</div>
         <div class="slot-meta">${nowEvent.Type}${nowEvent.Opponent ? ' vs ' + nowEvent.Opponent : ''} · until ${fmtTime(nowEvent.time.end)}</div>
       </div>`;
     } else {
-      html += `<div class="slot free"><div class="slot-label">● Now</div>Free</div>`;
+      html += `<div class="slot free"><div class="slot-label">${dot} Now</div>Free</div>`;
     }
 
     if (nextEvent) {
