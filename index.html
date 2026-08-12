@@ -122,6 +122,25 @@
   .team-cell { font-weight: 600; }
   .opponent-cell { color: var(--muted); }
   @media (hover: hover) { tbody tr:hover { background: var(--panel2) !important; } }
+
+  /* ---- mobile schedule: compact cards instead of the table below 800px,
+     same breakpoint the now-next-grid already switches at ---- */
+  .mobile-schedule { display: none; }
+  @media (max-width: 800px) {
+    .desktop-schedule { display: none; }
+    .mobile-schedule { display: block; }
+  }
+  .day-heading { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 18px 2px 8px; }
+  .day-heading:first-child { margin-top: 0; }
+  .booking-card { background: var(--panel); border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; border-left: 3px solid var(--pitch-color, #94a3b8); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+  .booking-top { display: flex; align-items: center; gap: 6px; }
+  .booking-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  /* Solid fill, white text -- same formula as the active filter pill above,
+     using p.solid (contrast-safe) rather than p.color (fails at 2.59:1). */
+  .pitch-pill { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; color: #ffffff; }
+  .booking-time { font-size: 0.72rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .booking-team { font-weight: 700; font-size: 0.9rem; margin-top: 1px; line-height: 1.25; }
+  .booking-opponent { font-size: 0.76rem; color: var(--muted); margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -166,9 +185,13 @@
 // This literal placeholder is never a working URL; that's expected here.
 const CSV_URL = "https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec";
 const PITCHES = [
-  { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8' },
-  { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f' },
-  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f' },
+  // `color` is the raw accent hue -- fine for borders/tints with no text on
+  // top of it. `solid` is a darkened, contrast-safe variant for anywhere
+  // text sits directly on a solid fill (white text needs 4.5:1+; raw pitch1/
+  // pitch3 fail that at 2.59:1/3.64:1, pitch2 is already dark enough as-is).
+  { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8', solid: '#1e6fb8' },
+  { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f', solid: '#1e3a5f' },
+  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f', solid: '#92400e' },
 ];
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGGER_HOURS
@@ -225,6 +248,13 @@ function sameDay(a, b) {
 
 function atMidnight(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function fmtDayHeading(d, now) {
+  if (sameDay(d, now)) return 'Today';
+  const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  if (sameDay(d, tomorrow)) return 'Tomorrow';
+  return d.toLocaleDateString('en-IE', { weekday: 'long', day: 'numeric', month: 'short' });
 }
 
 function fmtDate(d) {
@@ -334,8 +364,10 @@ function renderPitchToggles() {
     const isActive = pitchFilter === p.id;
     btn.className = 'pitch-toggle';
     btn.textContent = p.name.split(' — ')[0]; // short label, e.g. "Pitch 1"
-    btn.style.color = isActive ? '#ffffff' : p.color;
-    btn.style.background = isActive ? p.color : 'var(--panel2)';
+    // p.solid, not p.color -- raw pitch1/pitch3 fail contrast both as text
+    // (inactive, on panel2) and as a solid fill behind white text (active).
+    btn.style.color = isActive ? '#ffffff' : p.solid;
+    btn.style.background = isActive ? p.solid : 'var(--panel2)';
     btn.onclick = () => {
       pitchFilter = isActive ? null : p.id; // click again to clear back to "all"
       render();
@@ -379,9 +411,11 @@ function renderSchedule() {
   if (!rows.length) {
     panel.innerHTML = `<div class="empty-msg">No ${descParts.length ? descParts.join(' ') : 'sessions'} in the next 8 days.</div>`;
   } else {
-    // Pitch column only makes sense when showing more than one pitch at once.
+    // Pitch column/pill only makes sense when showing more than one pitch at once.
     const showPitchCol = !pitchFilter;
-    let html = `<table><thead><tr>${showPitchCol ? '<th>Pitch</th>' : ''}<th>Date</th><th>Time</th><th>Team</th><th>Type</th><th>Opponent</th></tr></thead><tbody>`;
+
+    // ---- desktop: table (unchanged) ----
+    let tableHtml = `<table class="desktop-schedule"><thead><tr>${showPitchCol ? '<th>Pitch</th>' : ''}<th>Date</th><th>Time</th><th>Team</th><th>Type</th><th>Opponent</th></tr></thead><tbody>`;
     rows.forEach(r => {
       const isToday = sameDay(r.dateObj, now);
       let pitchCell = '';
@@ -392,14 +426,41 @@ function renderSchedule() {
         pitchCell = `<td><span class="pitch-badge" style="background:${color}22;color:${color};border:1px solid ${color}88;">${pitchName}</span></td>`;
       }
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
-      html += `<tr class="${isToday ? 'today-row' : ''}">
+      tableHtml += `<tr class="${isToday ? 'today-row' : ''}">
         ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${r.Time || ''}</td><td class="team-cell">${r.Team}</td>
         <td><span class="type-badge ${typeClass}">${r.Type}</span></td>
         <td class="opponent-cell">${r.Opponent || ''}</td>
       </tr>`;
     });
-    html += '</tbody></table>';
-    panel.innerHTML = html;
+    tableHtml += '</tbody></table>';
+
+    // ---- mobile: compact cards, grouped by day ----
+    let cardsHtml = '<div class="mobile-schedule">';
+    let lastDateKey = null;
+    rows.forEach(r => {
+      const dateKey = r.dateObj.toDateString();
+      if (dateKey !== lastDateKey) {
+        cardsHtml += `<div class="day-heading">${fmtDayHeading(r.dateObj, now)}</div>`;
+        lastDateKey = dateKey;
+      }
+      const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
+      const pitchName = rowPitchDef ? rowPitchDef.name.split(' — ')[0] : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away');
+      const fill = rowPitchDef ? rowPitchDef.solid : '#64748b';
+      const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
+      const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
+      const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};">${pitchName}</span>` : '';
+      cardsHtml += `<div class="booking-card" style="--pitch-color:${border};">
+        <div class="booking-top">
+          <div class="booking-left">${pitchPill}<span class="booking-time">${r.Time || ''}</span></div>
+          <span class="type-badge ${typeClass}">${r.Type}</span>
+        </div>
+        <div class="booking-team">${r.Team}</div>
+        ${r.Opponent ? `<div class="booking-opponent">vs ${r.Opponent}</div>` : ''}
+      </div>`;
+    });
+    cardsHtml += '</div>';
+
+    panel.innerHTML = tableHtml + cardsHtml;
   }
   container.appendChild(panel);
 }
