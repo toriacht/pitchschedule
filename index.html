@@ -52,10 +52,21 @@
     box-shadow: 0 2px 8px rgba(30, 111, 184, 0.3);
   }
   .install-cta:hover { background: #17568f; }
+  .search-wrap { position: relative; width: 100%; }
   #search {
     width: 100%; padding: 10px 14px; border-radius: 10px;
     border: 1px solid var(--accent2); background: var(--panel); color: var(--text); font-size: 1rem;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  /* Right padding only grows once there's a value (see JS) -- reserving
+     space for the clear button unconditionally would throw off the
+     :placeholder-shown centering below while the field is still empty. */
+  .search-wrap.has-value #search { padding-right: 38px; }
+  .search-clear {
+    position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+    width: 24px; height: 24px; border-radius: 999px; border: none;
+    background: var(--panel2); color: var(--muted); font-size: 0.75rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
   /* Center only the placeholder -- once typing starts, revert to left-aligned
      so the cursor/text don't jump around mid-type. */
@@ -175,7 +186,10 @@
 <div class="now-next-grid" id="nowNextGrid"></div>
 
 <div class="controls-row">
-  <input id="search" type="text" placeholder="Filter by team… e.g. U14 boys">
+  <div class="search-wrap">
+    <input id="search" type="text" placeholder="Filter by team… e.g. U14 boys">
+    <button id="searchClear" class="search-clear" aria-label="Clear search" style="display:none;">✕</button>
+  </div>
 </div>
 <div class="controls-row">
   <button id="matchesToggle" class="toggle-btn">Matches</button>
@@ -498,11 +512,28 @@ function render() {
   renderSchedule();
 }
 
-document.getElementById('search').addEventListener('input', render);
+const searchInput = document.getElementById('search');
+const searchClear = document.getElementById('searchClear');
+const searchWrap = document.querySelector('.search-wrap');
+function updateSearchClearVisibility() {
+  const hasValue = !!searchInput.value;
+  searchClear.style.display = hasValue ? 'flex' : 'none';
+  searchWrap.classList.toggle('has-value', hasValue);
+}
+searchInput.addEventListener('input', () => {
+  updateSearchClearVisibility();
+  render();
+});
 // Blurring on Enter is what actually dismisses the on-screen keyboard on
 // mobile -- nothing does that by default for a bare (non-form) input.
-document.getElementById('search').addEventListener('keydown', (e) => {
+searchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') e.target.blur();
+});
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  updateSearchClearVisibility();
+  searchInput.focus();
+  render();
 });
 document.getElementById('matchesToggle').addEventListener('click', () => {
   matchesOnly = !matchesOnly;
