@@ -137,8 +137,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ============ CONFIG ============
-// Paste the published-CSV URL for your "Schedule" tab here (see deployment steps).
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTHGy1fXUJdQgV5CTa1zV-_POqwFfpTdpJTsbh3kQHN9F-29iW4cufEJw5D3sdOpCog-OZAvitBQPhH/pub?gid=150698085&single=true&output=csv";
+// Apps Script doGet() Web App endpoint -- computed fresh on every request,
+// no publish-cache lag. Replaced the old Sheets "Publish to web" CSV link;
+// see docs/adr/adr-0005-apps-script-proxy-not-publish-to-web.md.
+const CSV_URL = "https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec";
 const PITCHES = [
   { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8' },
   { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f' },
