@@ -14,8 +14,14 @@
 <style>
   :root {
     --bg: #f7fafc; --panel: #ffffff; --panel2: #eaf3fb; --text: #0f172a;
-    --muted: #64748b; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #f59e0b;
-    --success: #22c55e; --border: #e6edf5;
+    /* --muted darkened, and --now/--success repurposed to navy for the NOW/
+       Free *label text* specifically -- contrast audit found the original
+       amber/green label text failed WCAG AA (1.96:1 / 2.12:1) against their
+       own tinted slot backgrounds. --dot-now/--dot-free keep the original
+       amber/green for just the small ● indicator, so the at-a-glance
+       colour cue survives while the actual text stays legible. */
+    --muted: #475569; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #1e3a5f;
+    --success: #1e3a5f; --dot-now: #f59e0b; --dot-free: #22c55e; --border: #e6edf5;
     --pitch1: #4fa8e8; --pitch2: #1e3a5f; --pitch3: #b7791f;
   }
   * { box-sizing: border-box; }
@@ -98,6 +104,8 @@
   @keyframes pulse-live { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.25; transform: scale(1.5); } }
   .pulse-once { display: inline-block; animation: pulse-live 0.8s ease-in-out; }
   @media (prefers-reduced-motion: reduce) { .pulse-once { animation: none; } }
+  .dot-now-color { color: var(--dot-now); }
+  .dot-free-color { color: var(--dot-free); }
 
   .empty-msg { color: var(--muted); padding: 24px; text-align: center; }
   .pitch-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
@@ -265,7 +273,7 @@ function currentFilter() {
 }
 
 function renderNowNext() {
-  const dot = `<span class="${justSynced ? 'pulse-once' : ''}">●</span>`;
+  const makeDot = (colorClass) => `<span class="${[colorClass, justSynced ? 'pulse-once' : ''].filter(Boolean).join(' ')}">●</span>`;
   const grid = document.getElementById('nowNextGrid');
   grid.style.display = 'grid';
   const now = new Date();
@@ -293,12 +301,12 @@ function renderNowNext() {
     if (nowEvent) {
       const match = filter && nowEvent.Team.toLowerCase().includes(filter);
       html += `<div class="slot now ${match ? 'highlight' : ''}">
-        <div class="slot-label now-label">${dot} Now</div>
+        <div class="slot-label now-label">${makeDot('dot-now-color')} Now</div>
         <div class="slot-team">${nowEvent.Team}</div>
         <div class="slot-meta">${nowEvent.Type}${nowEvent.Opponent ? ' vs ' + nowEvent.Opponent : ''} · until ${fmtTime(nowEvent.time.end)}</div>
       </div>`;
     } else {
-      html += `<div class="slot free"><div class="slot-label">${dot} Now</div>Free</div>`;
+      html += `<div class="slot free"><div class="slot-label">${makeDot('dot-free-color')} Now</div>Free</div>`;
     }
 
     if (nextEvent) {
