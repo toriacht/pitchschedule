@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Schedule</title>
+<link rel="icon" href="favicon.ico?v=2" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e6fb8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pitch Schedule">
+<style>
+  :root {
+    --bg: #f7fafc; --panel: #ffffff; --panel2: #eaf3fb; --text: #0f172a;
+    --muted: #64748b; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #f59e0b;
+    --success: #22c55e; --border: #e6edf5;
+    --pitch1: #4fa8e8; --pitch2: #1e3a5f; --pitch3: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); padding: 16px;
+  }
+  .page-wrap { max-width: 980px; margin: 0 auto; }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 20px; padding-bottom: 16px; box-shadow: 0 1px 0 var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .header-crest { width: 48px; height: auto; }
+  .brand-text .club-name { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; color: var(--accent2); margin: 0; }
+  h1 { font-size: 1.25rem; margin: 2px 0 0 0; font-weight: 700; color: var(--text); }
+  .controls-row {
+    display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .sync-pill {
+    font-size: 0.75rem; color: var(--muted); background: transparent; border: none;
+    border-radius: 999px; padding: 5px 10px; cursor: default;
+  }
+  .install-cta {
+    font-size: 0.8rem; font-weight: 700; color: #ffffff; background: var(--accent2); border: none;
+    border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(30, 111, 184, 0.3);
+  }
+  .install-cta:hover { background: #17568f; }
+  #search {
+    width: 100%; max-width: 320px; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid var(--accent2); background: var(--panel); color: var(--text); font-size: 1rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  #search:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .toggle-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 15px; border-radius: 999px; border: 1px solid var(--accent2);
+    background: var(--panel2); color: var(--text); cursor: pointer; font-size: 0.9rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .toggle-btn.active { background: var(--accent2); color: #ffffff; }
+  .pitch-toggle {
+    padding: 9px 17px; border-radius: 999px; border: 1px solid var(--accent2);
+    background: var(--panel2); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  }
+  .filter-status { color: var(--muted); font-size: 0.85rem; margin: -4px 0 12px 0; text-align: center; }
+  .now-next-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px;
+  }
+  @media (max-width: 800px) { .now-next-grid { grid-template-columns: 1fr; } }
+  .pitch-card {
+    background: var(--panel); border-radius: 14px; padding: 16px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06); cursor: pointer;
+    transition: box-shadow 0.15s ease;
+    position: relative;
+  }
+  .pitch-card:hover { box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); }
+  .pitch-card h2 { margin: 0 0 12px 0; font-size: 1rem; padding-right: 20px; }
+  .pitch-card .chevron { position: absolute; top: 16px; right: 16px; color: var(--muted); font-size: 1rem; }
+  .slot { border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .slot.now { background: rgba(245,158,11,0.12); }
+  .slot.next { background: var(--panel2); }
+  .slot.free { background: rgba(34,197,94,0.08); color: var(--muted); }
+  .slot-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 2px; }
+  .slot-label.now-label { color: var(--now); }
+  .slot.free .slot-label { color: var(--success); }
+  .slot-team { font-weight: 700; font-size: 1.05rem; }
+  .slot-meta { font-size: 0.85rem; color: var(--muted); }
+  .highlight { outline: 2px solid var(--accent); }
+
+  .empty-msg { color: var(--muted); padding: 24px; text-align: center; }
+  .pitch-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+  .type-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .type-training { background: var(--panel2); color: var(--accent2); }
+  .type-match { background: rgba(183,121,31,0.12); color: var(--pitch3); }
+  .type-blitz { background: rgba(100,116,139,0.12); color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+  th, td { text-align: left; padding: 13px 14px; font-size: 0.9rem; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  tbody tr:nth-child(even) { background: var(--bg); }
+  tr.today-row { background: rgba(245,158,11,0.08) !important; }
+  .team-cell { font-weight: 600; }
+  .opponent-cell { color: var(--muted); }
+  @media (hover: hover) { tbody tr:hover { background: var(--panel2) !important; } }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<header>
+  <div class="brand">
+    <img src="crest.png" alt="Club crest" class="header-crest">
+    <div class="brand-text">
+      <p class="club-name">ATHLONE GAA</p>
+      <h1>Pitch Schedule</h1>
+    </div>
+  </div>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+    <button id="installBtn" class="install-cta" style="display:none;"></button>
+    <button id="syncPill" class="sync-pill">🕒 Loading…</button>
+  </div>
+</header>
+
+<div class="now-next-grid" id="nowNextGrid"></div>
+
+<div class="controls-row">
+  <input id="search" type="text" placeholder="Filter by team… e.g. U14 boys">
+</div>
+<div class="controls-row">
+  <button id="matchesToggle" class="toggle-btn">Matches</button>
+  <div id="pitchToggleRow" style="display: contents;"></div>
+</div>
+
+<div class="filter-status" id="filterStatus"></div>
+<div id="panels"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+// ============ CONFIG ============
+// Paste the published-CSV URL for your "Schedule" tab here (see deployment steps).
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTHGy1fXUJdQgV5CTa1zV-_POqwFfpTdpJTsbh3kQHN9F-29iW4cufEJw5D3sdOpCog-OZAvitBQPhH/pub?gid=150698085&single=true&output=csv";
+const PITCHES = [
+  { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8' },
+  { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f' },
+  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f' },
+];
+const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGGER_HOURS
+// =================================
+
+let allRows = [];
+let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
+let matchesOnly = false;
+
+// NOTE: source email times have no AM/PM. If a time is already unambiguous
+// 24-hour (e.g. "18:30"), it's used as-is. Otherwise these club-pattern
+// rules apply:
+//  - Weekends (Sat/Sun): hours 9-12 assumed AM (kids' morning training),
+//    hours 1-8 assumed PM (afternoon/evening fixtures).
+//  - Weekdays: always assumed PM (after-school/work training slots).
+function guessHour(h, dayStr) {
+  if (h > 12) return h; // already unambiguous 24hr time
+  const isWeekend = /saturday|sunday/i.test(dayStr || '');
+  if (isWeekend && h >= 9 && h <= 12) return h === 12 ? 12 : h; // AM
+  return h === 12 ? 12 : h + 12; // PM
+}
+
+function parseTime(str, dayStr) {
+  if (!str) return null;
+  const rangeMatch = str.match(/(\d{1,2})(?::(\d{2}))?\s*[–-]\s*(\d{1,2})(?::(\d{2}))?/);
+  if (rangeMatch) {
+    const sh = guessHour(parseInt(rangeMatch[1]), dayStr), sm = parseInt(rangeMatch[2] || '0');
+    const eh = guessHour(parseInt(rangeMatch[3]), dayStr), em = parseInt(rangeMatch[4] || '0');
+    return { start: sh * 60 + sm, end: eh * 60 + em };
+  }
+  const single = str.match(/(\d{1,2})(?::(\d{2}))?/);
+  if (single) {
+    const h = guessHour(parseInt(single[1]), dayStr), m = parseInt(single[2] || '0');
+    const start = h * 60 + m;
+    return { start, end: start + 60 }; // default 60 min duration if no end given
+  }
+  return null;
+}
+
+function fmtTime(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''}${ampm}`;
+}
+
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function atMidnight(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function nextSyncTime() {
+  // Note: assumes the viewer's device is on Irish time, same as the club
+  // audience this is built for. TRIGGER_HOURS is interpreted in the Apps
+  // Script project's own timezone (Project Settings), which should also be
+  // Europe/Dublin for this to line up.
+  const now = new Date();
+  const todayCandidates = TRIGGER_HOURS
+    .map(h => new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, 0, 0))
+    .filter(d => d > now)
+    .sort((a, b) => a - b);
+  if (todayCandidates.length) return todayCandidates[0];
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, TRIGGER_HOURS[0], 0, 0);
+  return tomorrow;
+}
+
+async function loadData() {
+  const res = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cachebust=' + Date.now());
+  const text = await res.text();
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+  allRows = parsed.data.map(r => {
+    const date = new Date(r.Date);
+    const time = parseTime(r.Time, r.Day);
+    return { ...r, dateObj: date, time };
+  }).filter(r => r.Date && !isNaN(r.dateObj));
+
+  // Temporarily showing "Next sync" only -- "Last synced" was reading from
+  // the published-CSV snapshot, which can lag behind the actual sheet if
+  // Google's "Publish to web" auto-republish isn't enabled. Revisit once
+  // that's confirmed fixed.
+  const fmtOpts = { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' };
+  document.getElementById('syncPill').textContent = `🕒 Next sync ${nextSyncTime().toLocaleString('en-IE', fmtOpts)}`;
+
+  render();
+}
+
+function currentFilter() {
+  return document.getElementById('search').value.trim().toLowerCase();
+}
+
+function renderNowNext() {
+  const grid = document.getElementById('nowNextGrid');
+  grid.style.display = 'grid';
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const filter = currentFilter();
+  grid.innerHTML = '';
+
+  PITCHES.forEach(p => {
+    const rows = allRows.filter(r => (r.Pitch || '').trim() === p.id);
+    const todays = rows.filter(r => sameDay(r.dateObj, now));
+
+    const nowEvent = todays.find(r => r.time && nowMin >= r.time.start && nowMin < r.time.end);
+    const upcoming = allRows
+      .filter(r => (r.Pitch || '').trim() === p.id && r.time)
+      .filter(r => r.dateObj > now || (sameDay(r.dateObj, now) && r.time.start >= nowMin))
+      .sort((a, b) => (a.dateObj - b.dateObj) || (a.time.start - b.time.start));
+    const nextEvent = upcoming.find(r => r !== nowEvent);
+
+    const card = document.createElement('div');
+    card.className = 'pitch-card';
+    card.style.borderTop = `4px solid ${p.color}`;
+    card.onclick = () => { pitchFilter = p.id; render(); document.getElementById('panels').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    let html = `<span class="chevron">›</span><h2>${p.name}</h2>`;
+
+    if (nowEvent) {
+      const match = filter && nowEvent.Team.toLowerCase().includes(filter);
+      html += `<div class="slot now ${match ? 'highlight' : ''}">
+        <div class="slot-label now-label">● Now</div>
+        <div class="slot-team">${nowEvent.Team}</div>
+        <div class="slot-meta">${nowEvent.Type}${nowEvent.Opponent ? ' vs ' + nowEvent.Opponent : ''} · until ${fmtTime(nowEvent.time.end)}</div>
+      </div>`;
+    } else {
+      html += `<div class="slot free"><div class="slot-label">● Now</div>Free</div>`;
+    }
+
+    if (nextEvent) {
+      const match = filter && nextEvent.Team.toLowerCase().includes(filter);
+      const dayLabel = sameDay(nextEvent.dateObj, now) ? 'Today' : nextEvent.Day;
+      html += `<div class="slot next ${match ? 'highlight' : ''}">
+        <div class="slot-label">Next</div>
+        <div class="slot-team">${nextEvent.Team}</div>
+        <div class="slot-meta">${dayLabel} · ${fmtTime(nextEvent.time.start)}${nextEvent.Opponent ? ' vs ' + nextEvent.Opponent : ''}</div>
+      </div>`;
+    } else {
+      html += `<div class="slot free"><div class="slot-label">Next</div>Nothing scheduled</div>`;
+    }
+
+    card.innerHTML = html;
+    grid.appendChild(card);
+  });
+}
+
+function renderPitchToggles() {
+  const row = document.getElementById('pitchToggleRow');
+  row.innerHTML = '';
+  PITCHES.forEach(p => {
+    const btn = document.createElement('button');
+    const isActive = pitchFilter === p.id;
+    btn.className = 'pitch-toggle';
+    btn.textContent = p.name.split(' — ')[0]; // short label, e.g. "Pitch 1"
+    btn.style.color = isActive ? '#ffffff' : p.color;
+    btn.style.background = isActive ? p.color : 'var(--panel2)';
+    btn.onclick = () => {
+      pitchFilter = isActive ? null : p.id; // click again to clear back to "all"
+      render();
+    };
+    row.appendChild(btn);
+  });
+}
+
+function renderSchedule() {
+  const container = document.getElementById('panels');
+  const statusEl = document.getElementById('filterStatus');
+  container.innerHTML = '';
+  const now = new Date();
+  const filter = currentFilter();
+
+  // Window is today through +7 days. No look-back -- past sessions have no
+  // operational value for "what pitch am I on" / "can I book this", and
+  // clutter the view. Revisit with an opt-in "view last week" if ever needed.
+  const rangeStart = atMidnight(now);
+  const rangeEnd = atMidnight(now); rangeEnd.setDate(rangeEnd.getDate() + 7);
+  const inWindow = r => { const rd = atMidnight(r.dateObj); return rd >= rangeStart && rd <= rangeEnd; };
+
+  const pitchDef = pitchFilter ? PITCHES.find(p => p.id === pitchFilter) : null;
+
+  const descParts = [];
+  if (pitchDef) descParts.push(pitchDef.name.split(' — ')[0]);
+  if (matchesOnly) descParts.push('matches');
+  if (filter) descParts.push(`matching "${filter}"`);
+  statusEl.textContent = descParts.length
+    ? `Showing ${descParts.join(' · ')} · next 8 days`
+    : `Showing all pitches · next 8 days`;
+
+  const rows = allRows
+    .filter(inWindow)
+    .filter(r => !pitchFilter || (r.Pitch || '').trim() === pitchFilter)
+    .filter(r => !filter || r.Team.toLowerCase().includes(filter))
+    .filter(r => !matchesOnly || r.Type === 'Match')
+    .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start || 0) - (b.time?.start || 0)));
+
+  const panel = document.createElement('div');
+  if (!rows.length) {
+    panel.innerHTML = `<div class="empty-msg">No ${descParts.length ? descParts.join(' ') : 'sessions'} in the next 8 days.</div>`;
+  } else {
+    // Pitch column only makes sense when showing more than one pitch at once.
+    const showPitchCol = !pitchFilter;
+    let html = `<table><thead><tr>${showPitchCol ? '<th>Pitch</th>' : ''}<th>Date</th><th>Time</th><th>Team</th><th>Type</th><th>Opponent</th></tr></thead><tbody>`;
+    rows.forEach(r => {
+      const isToday = sameDay(r.dateObj, now);
+      let pitchCell = '';
+      if (showPitchCol) {
+        const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
+        const pitchName = rowPitchDef ? rowPitchDef.name.split(' — ')[0] : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away');
+        const color = rowPitchDef ? rowPitchDef.color : '#94a3b8';
+        pitchCell = `<td><span class="pitch-badge" style="background:${color}22;color:${color};border:1px solid ${color}88;">${pitchName}</span></td>`;
+      }
+      const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
+      html += `<tr class="${isToday ? 'today-row' : ''}">
+        ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${r.Time || ''}</td><td class="team-cell">${r.Team}</td>
+        <td><span class="type-badge ${typeClass}">${r.Type}</span></td>
+        <td class="opponent-cell">${r.Opponent || ''}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    panel.innerHTML = html;
+  }
+  container.appendChild(panel);
+}
+
+function render() {
+  renderNowNext();
+  renderPitchToggles();
+  renderSchedule();
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('matchesToggle').addEventListener('click', () => {
+  matchesOnly = !matchesOnly;
+  document.getElementById('matchesToggle').classList.toggle('active', matchesOnly);
+  render();
+});
+
+// ---------- Install prompt (friendlier than expecting people to find the
+// browser's menu themselves) ----------
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('installBtn');
+
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function updateInstallUI() {
+  if (isStandalone()) { installBtn.style.display = 'none'; return; } // already installed
+  if (deferredInstallPrompt) {
+    // Android/Chrome: real install flow, one tap
+    installBtn.textContent = '📲 Install App';
+    installBtn.style.display = 'inline-flex';
+    installBtn.onclick = async () => {
+      installBtn.style.display = 'none';
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+    };
+  } else if (isIOS()) {
+    // iOS: no install API exists at all -- show plain instructions instead
+    installBtn.textContent = '📲 Add to Home Screen';
+    installBtn.style.display = 'inline-flex';
+    installBtn.onclick = () => {
+      alert('On iPhone:\n\n1. Tap the Share icon (square with an arrow up) at the bottom of Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+    };
+  } else {
+    installBtn.style.display = 'none';
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallUI();
+});
+window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; });
+updateInstallUI(); // covers iOS immediately; Android updates if/when the browser fires the event
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
+loadData();
+setInterval(loadData, REFRESH_MS);
+</script>
+</body>
+</html>
