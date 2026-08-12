@@ -22,6 +22,7 @@
   body {
     margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg); color: var(--text); padding: 16px;
+    overflow-x: hidden; /* backstop -- nothing should be able to widen the whole page */
   }
   .page-wrap { max-width: 980px; margin: 0 auto; }
   header {
@@ -96,6 +97,7 @@
   .type-training { background: var(--panel2); color: var(--accent2); }
   .type-match { background: rgba(183,121,31,0.12); color: var(--pitch3); }
   .type-blitz { background: rgba(100,116,139,0.12); color: var(--muted); }
+  #panels { overflow-x: auto; } /* long team/opponent names can force the table wider than the viewport -- scroll that here, not the whole page */
   table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
   th, td { text-align: left; padding: 13px 14px; font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
