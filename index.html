@@ -46,6 +46,10 @@
     font-size: 0.75rem; color: var(--muted); background: transparent; border: none;
     border-radius: 999px; padding: 5px 10px; cursor: default;
   }
+  /* Stale-data warning. #92400e is 6.76:1 on --bg -- the obvious choice,
+     --pitch3 (#b7791f), measures 3.47:1 and fails AA for text this small,
+     same trap as the NOW/Free labels. */
+  .sync-pill.stale { color: #92400e; font-weight: 700; }
   .install-cta {
     font-size: 0.8rem; font-weight: 700; color: #ffffff; background: var(--accent2); border: none;
     border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap;
@@ -259,6 +263,26 @@ function guessHour(h, dayStr) {
 
 function parseTime(str, dayStr) {
   if (!str) return null;
+
+  // Google Sheets silently coerces a bare "8:15" written into the Time
+  // column into a real time value, which the CSV then serves as
+  // "1899-12-30T08:15:00" (1899-12-30 is the Sheets epoch for time-only
+  // values). Left alone, the range regex below reads "99-12" out of that
+  // string and returns a 99:00 start -- 5940 minutes, which sorts past
+  // midnight and renders as "3PM".
+  //
+  // Fixed at source in Code.gs (the Time column is forced to plain text
+  // before writing), but kept here too: the sheet only self-heals on the
+  // next full rebuild, and this is cheap insurance against it recurring.
+  // Whole hours ("8") and en-dash ranges ("6:30–7:30") were never coerced,
+  // which is why this stayed hidden.
+  const sheetsTimeValue = str.match(/^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/);
+  if (sheetsTimeValue) {
+    const h = guessHour(parseInt(sheetsTimeValue[1]), dayStr);
+    const start = h * 60 + parseInt(sheetsTimeValue[2]);
+    return { start, end: start + 60 };
+  }
+
   const rangeMatch = str.match(/(\d{1,2})(?::(\d{2}))?\s*[–-]\s*(\d{1,2})(?::(\d{2}))?/);
   if (rangeMatch) {
     const sh = guessHour(parseInt(rangeMatch[1]), dayStr), sm = parseInt(rangeMatch[2] || '0');
@@ -272,6 +296,18 @@ function parseTime(str, dayStr) {
     return { start, end: start + 60 }; // default 60 min duration if no end given
   }
   return null;
+}
+
+// What to actually show in the Time column. Normally the raw sheet value is
+// the friendliest thing to print -- it preserves ranges like "6:30–7:30"
+// exactly as the email worded them. The exception is a Sheets-coerced value
+// ("1899-12-30T06:45:00"), which is meaningless to a reader; for those,
+// render the parsed time instead. See the note in parseTime().
+function displayTime(r) {
+  const raw = (r.Time || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return r.time ? fmtTime(r.time.start) : '';
+  return raw;
 }
 
 function fmtTime(mins) {
@@ -315,6 +351,55 @@ function nextSyncTime() {
   return tomorrow;
 }
 
+// Match Code.gs's CONFIG.STALE_AFTER_DAYS. Both derive from the 8-day
+// display window (adr-0006): once the newest email predates the whole
+// window, everything on screen is stale by definition.
+const STALE_AFTER_DAYS = 8;
+
+// The freshness signal that actually means something. "Synced At" is
+// re-stamped on every row on every run, so it always looks current even when
+// no new email has arrived in weeks -- it proves the script ran, not that the
+// data is good. "Email Date" is when the source email was actually sent.
+function newestEmailDate(rows) {
+  let newest = null;
+  rows.forEach(r => {
+    const raw = r['Email Date'];
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d)) return;
+    if (!newest || d > newest) newest = d;
+  });
+  return newest;
+}
+
+function updateSyncPill() {
+  const pill = document.getElementById('syncPill');
+  const next = nextSyncTime();
+  const now = new Date();
+  // Triggers run 6x daily, so the next one is always within 24h -- show the
+  // weekday only when it's actually tomorrow.
+  const nextTxt = sameDay(next, now)
+    ? next.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
+    : next.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+
+  const newest = newestEmailDate(allRows);
+  if (!newest) {
+    pill.classList.remove('stale');
+    pill.textContent = `🕒 Next sync ${nextTxt}`;
+    return;
+  }
+
+  const ageDays = (now - newest) / 86400000;
+  const dateTxt = newest.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' });
+  if (ageDays > STALE_AFTER_DAYS) {
+    pill.classList.add('stale');
+    pill.textContent = `⚠️ Schedule last updated ${dateTxt} — ${Math.floor(ageDays)} days ago`;
+  } else {
+    pill.classList.remove('stale');
+    pill.textContent = `🕒 Updated ${dateTxt} · next sync ${nextTxt}`;
+  }
+}
+
 async function loadData() {
   const res = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cachebust=' + Date.now());
   const text = await res.text();
@@ -325,12 +410,7 @@ async function loadData() {
     return { ...r, dateObj: date, time };
   }).filter(r => r.Date && !isNaN(r.dateObj));
 
-  // Temporarily showing "Next sync" only -- "Last synced" was reading from
-  // the published-CSV snapshot, which can lag behind the actual sheet if
-  // Google's "Publish to web" auto-republish isn't enabled. Revisit once
-  // that's confirmed fixed.
-  const fmtOpts = { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Dublin' };
-  document.getElementById('syncPill').textContent = `🕒 Next sync ${nextSyncTime().toLocaleString('en-IE', fmtOpts)}`;
+  updateSyncPill();
 
   justSynced = true;
   render();
@@ -468,7 +548,7 @@ function renderSchedule() {
       }
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
       tableHtml += `<tr class="${isToday ? 'today-row' : ''}">
-        ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${r.Time || ''}</td><td class="team-cell">${r.Team}</td>
+        ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${displayTime(r)}</td><td class="team-cell">${r.Team}</td>
         <td><span class="type-badge ${typeClass}">${r.Type}</span></td>
         <td class="opponent-cell">${r.Opponent || ''}</td>
       </tr>`;
@@ -492,7 +572,7 @@ function renderSchedule() {
       const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};">${pitchName}</span>` : '';
       cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
-          <div class="booking-left">${pitchPill}<span class="booking-time">${r.Time || ''}</span></div>
+          <div class="booking-left">${pitchPill}<span class="booking-time">${displayTime(r)}</span></div>
           <span class="type-badge ${typeClass}">${r.Type}</span>
         </div>
         <div class="booking-team">${r.Team}</div>
@@ -560,7 +640,7 @@ document.getElementById('panels').addEventListener('click', (e) => {
     `<span class="pitch-pill" style="background:${fill};">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
   document.getElementById('detailTeam').textContent = r.Team;
   document.getElementById('detailDatetime').textContent =
-    `${fmtDayHeading(r.dateObj, new Date())}${r.Time ? ' · ' + r.Time : ''}`;
+    `${fmtDayHeading(r.dateObj, new Date())}${displayTime(r) ? ' · ' + displayTime(r) : ''}`;
   const opponentEl = document.getElementById('detailOpponent');
   if (r.Opponent) { opponentEl.textContent = 'vs ' + r.Opponent; opponentEl.style.display = ''; }
   else { opponentEl.style.display = 'none'; }
