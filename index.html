@@ -444,7 +444,7 @@ function renderSchedule() {
     .filter(r => !pitchFilter || (r.Pitch || '').trim() === pitchFilter)
     .filter(r => !filter || r.Team.toLowerCase().includes(filter))
     .filter(r => !matchesOnly || r.Type === 'Match')
-    .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start || 0) - (b.time?.start || 0)));
+    .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
 
   scheduleRows = rows;
 
