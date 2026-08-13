@@ -134,7 +134,11 @@
   .pitch-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
   .type-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
   .type-training { background: var(--panel2); color: var(--accent2); }
-  .type-match { background: rgba(183,121,31,0.12); color: var(--pitch3); }
+  /* Gold tint keeps the colour cue; the text is the darkened gold, since
+     --pitch3 on its own tint is 3.19:1. Same colour as the stale/ambiguous
+     warnings, which is fine here -- the badge still reads gold because the
+     background carries the hue, unlike a solid fill which would read brown. */
+  .type-match { background: rgba(183,121,31,0.12); color: #92400e; }
   .type-blitz { background: rgba(100,116,139,0.12); color: var(--muted); }
   #panels { overflow-x: auto; } /* long team/opponent names can force the table wider than the viewport -- scroll that here, not the whole page */
   table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
@@ -656,8 +660,14 @@ function renderSchedule() {
       if (showPitchCol) {
         const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
         const pitchName = rowPitchDef ? rowPitchDef.name.split(' — ')[0] : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away');
+        // Tint and border carry the crest hue; the TEXT uses p.solid, the
+        // darkened variant kept for exactly this case. Using the raw hue as
+        // text on a tint of itself is the pattern that failed AA -- Pitch 1
+        // at 2.30:1. Darkening only the text takes it to 4.64:1 without
+        // making the table heavier, which filling the badge would.
         const color = rowPitchDef ? rowPitchDef.color : '#94a3b8';
-        pitchCell = `<td><span class="pitch-badge" style="background:${color}22;color:${color};border:1px solid ${color}88;">${pitchName}</span></td>`;
+        const label = rowPitchDef ? rowPitchDef.solid : '#475569';
+        pitchCell = `<td><span class="pitch-badge" style="background:${color}22;color:${label};border:1px solid ${color}88;">${pitchName}</span></td>`;
       }
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
       tableHtml += `<tr class="${isToday ? 'today-row' : ''}">
