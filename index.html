@@ -262,9 +262,26 @@ let scheduleRows = [];
 // filter click, which also call render() but aren't a real sync event.
 let justSynced = false;
 
-// NOTE: source email times have no AM/PM. If a time is already unambiguous
-// 24-hour (e.g. "18:30"), it's used as-is. Otherwise these club-pattern
-// rules apply:
+// Applies a stated am/pm suffix, if the email gave one. Returns null when it
+// didn't, which is the common case and hands over to guessHour() below.
+//
+// This exists because the email is *sometimes* explicit ("training at 8am on
+// pitch 2") and that was being thrown away in favour of a guess -- guessHour
+// would render that 8am session as 8PM. A stated fact always beats an
+// inference, so this is checked first and the heuristic only fills real gaps.
+function statedHour(str) {
+  const m = String(str || '').match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const pm = m[3].toLowerCase() === 'pm';
+  if (h === 12) h = pm ? 12 : 0;   // 12pm is noon, 12am is midnight
+  else if (pm) h += 12;
+  return h;
+}
+
+// NOTE: used only when the email did NOT state AM/PM -- see statedHour().
+// If a time is already unambiguous 24-hour (e.g. "18:30"), it's used as-is.
+// Otherwise these club-pattern rules apply:
 //  - Weekends (Sat/Sun): hours 9-12 assumed AM (kids' morning training),
 //    hours 1-8 assumed PM (afternoon/evening fixtures).
 //  - Weekdays: always assumed PM (after-school/work training slots).
@@ -297,15 +314,31 @@ function parseTime(str, dayStr) {
     return { start, end: start + 60 };
   }
 
-  const rangeMatch = str.match(/(\d{1,2})(?::(\d{2}))?\s*[–-]\s*(\d{1,2})(?::(\d{2}))?/);
+  // Each side of a range carries its own suffix, and often only the end has
+  // one ("from 7 to 8pm"). A stated suffix on either side settles both, since
+  // a session doesn't span noon in this data -- so an unsuffixed start
+  // inherits the end's meridiem rather than falling back to a guess.
+  const rangeMatch = str.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[–-]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
   if (rangeMatch) {
-    const sh = guessHour(parseInt(rangeMatch[1]), dayStr), sm = parseInt(rangeMatch[2] || '0');
-    const eh = guessHour(parseInt(rangeMatch[3]), dayStr), em = parseInt(rangeMatch[4] || '0');
+    const startStated = statedHour(rangeMatch[1]);
+    const endStated = statedHour(rangeMatch[2]);
+    const meridiem = (rangeMatch[1].match(/am|pm/i) || rangeMatch[2].match(/am|pm/i) || [null])[0];
+    const hourOf = (part, stated) => {
+      if (stated !== null) return stated;
+      const n = parseInt(part.match(/\d{1,2}/)[0], 10);
+      return meridiem ? statedHour(n + meridiem) : guessHour(n, dayStr);
+    };
+    const sh = hourOf(rangeMatch[1], startStated);
+    const eh = hourOf(rangeMatch[2], endStated);
+    const sm = parseInt((rangeMatch[1].match(/:(\d{2})/) || [0, '0'])[1], 10);
+    const em = parseInt((rangeMatch[2].match(/:(\d{2})/) || [0, '0'])[1], 10);
     return { start: sh * 60 + sm, end: eh * 60 + em };
   }
   const single = str.match(/(\d{1,2})(?::(\d{2}))?/);
   if (single) {
-    const h = guessHour(parseInt(single[1]), dayStr), m = parseInt(single[2] || '0');
+    const stated = statedHour(str);
+    const h = stated !== null ? stated : guessHour(parseInt(single[1]), dayStr);
+    const m = parseInt(single[2] || '0');
     const start = h * 60 + m;
     return { start, end: start + 60 }; // default 60 min duration if no end given
   }
