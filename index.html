@@ -158,9 +158,9 @@
   .booking-card { background: var(--panel); border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; border-left: 3px solid var(--pitch-color, #94a3b8); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
   .booking-top { display: flex; align-items: center; gap: 6px; }
   .booking-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-  /* Solid fill, white text -- same formula as the active filter pill above,
-     using p.solid (contrast-safe) rather than p.color (fails at 2.59:1). */
-  .pitch-pill { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; color: #ffffff; }
+  /* Crest-coloured fill. Text colour comes from p.text per pitch (set
+     inline), not hardcoded -- see the PITCHES comment for why. */
+  .pitch-pill { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
   .booking-time { font-size: 0.72rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .booking-team { font-weight: 700; font-size: 0.9rem; margin-top: 1px; line-height: 1.25; }
   .booking-opponent { font-size: 0.76rem; color: var(--muted); margin-top: 1px; }
@@ -245,13 +245,23 @@
 // This literal placeholder is never a working URL; that's expected here.
 const CSV_URL = "https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec";
 const PITCHES = [
-  // `color` is the raw accent hue -- fine for borders/tints with no text on
-  // top of it. `solid` is a darkened, contrast-safe variant for anywhere
-  // text sits directly on a solid fill (white text needs 4.5:1+; raw pitch1/
-  // pitch3 fail that at 2.59:1/3.64:1, pitch2 is already dark enough as-is).
-  { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8', solid: '#1e6fb8' },
-  { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f', solid: '#1e3a5f' },
-  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f', solid: '#92400e' },
+  // `color` is the crest hue and is what actually gets shown -- light blue,
+  // navy, gold. Filled pills use it directly, paired with `text`.
+  //
+  // The earlier contrast fix darkened these instead (gold -> #92400e), which
+  // passed AA but threw the brand away: Pitch 3 read as brown, and worse, as
+  // the same brown used for stale-data and ambiguous-time warnings. The
+  // problem was never the crest colours, it was pinning the text to white.
+  // Dark text on the real gold measures 4.90:1 and on the real light blue
+  // 6.88:1 -- both pass. Navy is dark enough to keep white text. Same move
+  // as the NOW/Free labels: change the text, keep the colour.
+  //
+  // `solid` survives for one job only: where the hue is used as TEXT on a
+  // light background (the inactive pitch filter buttons), where the crest
+  // colours genuinely can't pass.
+  { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8', text: '#0f172a', solid: '#1e6fb8' },
+  { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f', text: '#ffffff', solid: '#1e3a5f' },
+  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f', text: '#0f172a', solid: '#92400e' },
 ];
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGGER_HOURS
@@ -588,8 +598,8 @@ function renderPitchToggles() {
     btn.textContent = p.name.split(' — ')[0]; // short label, e.g. "Pitch 1"
     // p.solid, not p.color -- raw pitch1/pitch3 fail contrast both as text
     // (inactive, on panel2) and as a solid fill behind white text (active).
-    btn.style.color = isActive ? '#ffffff' : p.solid;
-    btn.style.background = isActive ? p.solid : 'var(--panel2)';
+    btn.style.color = isActive ? p.text : p.solid;
+    btn.style.background = isActive ? p.color : 'var(--panel2)';
     btn.onclick = () => {
       pitchFilter = isActive ? null : p.id; // click again to clear back to "all"
       render();
@@ -669,10 +679,11 @@ function renderSchedule() {
       }
       const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
       const pitchName = rowPitchDef ? rowPitchDef.name.split(' — ')[0] : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away');
-      const fill = rowPitchDef ? rowPitchDef.solid : '#64748b';
+      const fill = rowPitchDef ? rowPitchDef.color : '#64748b';
+      const fillText = rowPitchDef ? rowPitchDef.text : '#ffffff';
       const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
-      const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};">${pitchName}</span>` : '';
+      const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span>` : '';
       cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
           <div class="booking-left">${pitchPill}<span class="booking-time">${displayTime(r)}</span></div>
@@ -736,11 +747,12 @@ document.getElementById('panels').addEventListener('click', (e) => {
 
   const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
   const pitchName = rowPitchDef ? rowPitchDef.name : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away fixture');
-  const fill = rowPitchDef ? rowPitchDef.solid : '#64748b';
+  const fill = rowPitchDef ? rowPitchDef.color : '#64748b';
+  const fillText = rowPitchDef ? rowPitchDef.text : '#ffffff';
   const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
 
   document.getElementById('detailTop').innerHTML =
-    `<span class="pitch-pill" style="background:${fill};">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
+    `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
   document.getElementById('detailTeam').textContent = r.Team;
   document.getElementById('detailDatetime').textContent =
     `${fmtDayHeading(r.dateObj, new Date())}${displayTime(r) ? ' · ' + displayTime(r) : ''}`;
