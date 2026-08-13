@@ -42,14 +42,22 @@
   .controls-row {
     display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
   }
+  /* Deliberately almost invisible when healthy -- just a dot. Freshness is
+     an admin concern, not something a parent checking tonight's pitch needs
+     in their face. Tap it for the detail; ?debug=1 expands it inline. It
+     only earns real estate when the data is actually stale. */
   .sync-pill {
     font-size: 0.75rem; color: var(--muted); background: transparent; border: none;
-    border-radius: 999px; padding: 5px 10px; cursor: default;
+    border-radius: 999px; padding: 5px 10px; cursor: pointer; opacity: 0.55;
   }
+  .sync-pill:hover { opacity: 1; }
   /* Stale-data warning. #92400e is 6.76:1 on --bg -- the obvious choice,
      --pitch3 (#b7791f), measures 3.47:1 and fails AA for text this small,
      same trap as the NOW/Free labels. */
-  .sync-pill.stale { color: #92400e; font-weight: 700; }
+  .sync-pill.stale { color: #92400e; font-weight: 700; opacity: 1; }
+  .sync-rows { font-size: 0.92rem; color: var(--muted); line-height: 1.8; }
+  .sync-rows b { color: var(--text); font-weight: 600; }
+  .sync-rows .sync-warn { color: #92400e; font-weight: 700; }
   .install-cta {
     font-size: 0.8rem; font-weight: 700; color: #ffffff; background: var(--accent2); border: none;
     border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap;
@@ -213,6 +221,12 @@
   <p class="detail-sentence" id="detailSentence"></p>
 </dialog>
 
+<dialog id="syncDetail" class="booking-detail">
+  <button class="detail-close" id="syncClose" aria-label="Close">✕</button>
+  <div class="detail-team">Data freshness</div>
+  <div class="sync-rows" id="syncRows"></div>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ============ CONFIG ============
@@ -372,32 +386,74 @@ function newestEmailDate(rows) {
   return newest;
 }
 
-function updateSyncPill() {
-  const pill = document.getElementById('syncPill');
-  const next = nextSyncTime();
-  const now = new Date();
+function nextSyncText() {
+  const next = nextSyncTime(), now = new Date();
   // Triggers run 6x daily, so the next one is always within 24h -- show the
   // weekday only when it's actually tomorrow.
-  const nextTxt = sameDay(next, now)
+  return sameDay(next, now)
     ? next.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
     : next.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+}
 
+function ageText(ms) {
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return mins + ' min';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 48) return hrs + ' hour' + (hrs === 1 ? '' : 's');
+  return Math.floor(hrs / 24) + ' days';
+}
+
+function isDebug() {
+  return new URLSearchParams(location.search).has('debug');
+}
+
+function updateSyncPill() {
+  const pill = document.getElementById('syncPill');
   const newest = newestEmailDate(allRows);
+  const debug = isDebug();
+
   if (!newest) {
     pill.classList.remove('stale');
-    pill.textContent = `🕒 Next sync ${nextTxt}`;
+    pill.textContent = debug ? `no data · next ${nextSyncText()}` : '●';
+    pill.setAttribute('aria-label', 'Data freshness: unknown. Tap for detail.');
     return;
   }
 
-  const ageDays = (now - newest) / 86400000;
-  const dateTxt = newest.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' });
-  if (ageDays > STALE_AFTER_DAYS) {
-    pill.classList.add('stale');
-    pill.textContent = `⚠️ Schedule last updated ${dateTxt} — ${Math.floor(ageDays)} days ago`;
+  const ageDays = (new Date() - newest) / 86400000;
+  const stale = ageDays > STALE_AFTER_DAYS;
+  pill.classList.toggle('stale', stale);
+
+  if (debug) {
+    const dateTxt = newest.toLocaleString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    pill.textContent = `${dateTxt} · ${Math.floor(ageDays)}d old · next ${nextSyncText()}`;
   } else {
-    pill.classList.remove('stale');
-    pill.textContent = `🕒 Updated ${dateTxt} · next sync ${nextTxt}`;
+    // Healthy: a bare dot, nothing more. Stale earns a number.
+    pill.textContent = stale ? `● ${Math.floor(ageDays)}d` : '●';
   }
+  pill.setAttribute('aria-label',
+    `Schedule last updated ${ageText(new Date() - newest)} ago${stale ? ' — out of date' : ''}. Tap for detail.`);
+}
+
+function openSyncDetail() {
+  const newest = newestEmailDate(allRows);
+  const out = [];
+
+  if (newest) {
+    const ageMs = new Date() - newest;
+    out.push(`<div>Schedule published <b>${newest.toLocaleString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b></div>`);
+    out.push(`<div>That's <b>${ageText(ageMs)}</b> ago</div>`);
+    if (ageMs / 86400000 > STALE_AFTER_DAYS) {
+      out.push(`<div class="sync-warn">No newer fixtures email has arrived — this may be out of date.</div>`);
+    }
+  } else {
+    out.push(`<div class="sync-warn">No schedule data loaded.</div>`);
+  }
+
+  out.push(`<div>Next check for updates <b>${nextSyncText()}</b></div>`);
+  out.push(`<div>Showing <b>${scheduleRows.length}</b> of ${allRows.length} bookings</div>`);
+
+  document.getElementById('syncRows').innerHTML = out.join('');
+  document.getElementById('syncDetail').showModal();
 }
 
 async function loadData() {
@@ -653,6 +709,13 @@ document.getElementById('panels').addEventListener('click', (e) => {
   bookingDetail.showModal();
 });
 document.getElementById('detailClose').addEventListener('click', () => bookingDetail.close());
+
+// Freshness detail -- the pill itself stays near-invisible, this is where the
+// actual information lives.
+const syncDetail = document.getElementById('syncDetail');
+document.getElementById('syncPill').addEventListener('click', openSyncDetail);
+document.getElementById('syncClose').addEventListener('click', () => syncDetail.close());
+syncDetail.addEventListener('click', (e) => { if (e.target === syncDetail) syncDetail.close(); });
 // Clicking the backdrop registers as a click on the <dialog> element itself
 // (not any of its content) -- the standard way to detect a backdrop click.
 bookingDetail.addEventListener('click', (e) => { if (e.target === bookingDetail) bookingDetail.close(); });
