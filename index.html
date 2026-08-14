@@ -215,7 +215,6 @@
     font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
   }
   .consent-btn.accept { background: var(--accent2); color: #ffffff; }
-  .consent-btn.decline { background: var(--panel2); color: var(--text); }
 </style>
 </head>
 <body>
@@ -288,12 +287,13 @@
   <div class="sync-rows" id="syncRows"></div>
 </dialog>
 
-<!-- GA4 consent gate (adr-0018) -- hidden by default; JS only shows it when
-     GA_MEASUREMENT_ID is configured and no consent choice is stored yet. -->
+<!-- GA4 notice banner (adr-0018, amended) -- hidden by default; JS only
+     shows it when GA_MEASUREMENT_ID is configured and it hasn't been
+     dismissed yet. Acknowledgment-only by deliberate choice -- see the
+     amendment note in the ADR for what that trades away. -->
 <div class="consent-banner" id="consentBanner" style="display:none;">
-  <p>This site uses analytics cookies to help us understand usage.</p>
+  <p>This site uses limited cookies to understand usage.</p>
   <div class="consent-actions">
-    <button class="consent-btn decline" id="consentDecline">No thanks</button>
     <button class="consent-btn accept" id="consentAccept">OK</button>
   </div>
 </div>
@@ -314,7 +314,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.14.3";
+const APP_VERSION = "26.08.14.4";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -971,10 +971,13 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ---- GA4 consent gate (adr-0018) ----
-// The script tag genuinely does not exist in the page until consent is
-// granted -- not loaded-but-suppressed, not present-but-inert. Nothing is
-// requested from Google's analytics domains before the visitor says yes.
+// ---- GA4 notice banner (adr-0018, amended) ----
+// The script tag genuinely does not exist in the page until the banner is
+// dismissed -- not loaded-but-suppressed, not present-but-inert. Nothing is
+// requested from Google's analytics domains before that. Acknowledgment-
+// only, deliberately: there is no decline path, so GA4 loads for every
+// visitor who dismisses the banner. See the amendment note in adr-0018 for
+// what that trades away.
 function loadGa4_() {
   const script = document.createElement('script');
   script.async = true;
@@ -990,19 +993,17 @@ function loadGa4_() {
 
 (function initConsentGate_() {
   if (!GA_MEASUREMENT_ID) return; // GA4 not configured -- banner never shows, nothing loads
-  let consent;
-  try { consent = localStorage.getItem('psAnalyticsConsent'); } catch (err) { /* private browsing etc. -- treat as unset, ask every visit */ }
-  if (consent === 'granted') { loadGa4_(); return; }
-  if (consent === 'denied') return;
+  let acknowledged;
+  try { acknowledged = localStorage.getItem('psAnalyticsConsent') === 'granted'; } catch (err) { /* private browsing etc. -- treat as unacknowledged, ask every visit */ }
+  if (acknowledged) { loadGa4_(); return; }
 
   const banner = document.getElementById('consentBanner');
   banner.style.display = 'flex';
-  const setConsent = (value) => {
-    try { localStorage.setItem('psAnalyticsConsent', value); } catch (err) { /* ignore -- banner just re-shows next visit */ }
+  document.getElementById('consentAccept').addEventListener('click', () => {
+    try { localStorage.setItem('psAnalyticsConsent', 'granted'); } catch (err) { /* ignore -- banner just re-shows next visit */ }
     banner.style.display = 'none';
-  };
-  document.getElementById('consentAccept').addEventListener('click', () => { setConsent('granted'); loadGa4_(); });
-  document.getElementById('consentDecline').addEventListener('click', () => setConsent('denied'));
+    loadGa4_();
+  });
 })();
 
 loadData();
