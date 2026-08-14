@@ -113,11 +113,15 @@
   .slot.now { background: rgba(245,158,11,0.12); }
   .slot.next { background: var(--panel2); }
   .slot.free { background: rgba(34,197,94,0.08); color: var(--muted); }
-  .slot-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 2px; }
+  /* Bumped from default weight (400) to 700/600 -- both already comfortably
+     clear WCAG AA on every slot background (6.75-9.64:1), so the small-text
+     legibility complaint here was a font-weight problem, not a contrast
+     one. Kept the same font-size throughout -- weight does the work. */
+  .slot-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 2px; }
   .slot-label.now-label { color: var(--now); }
   .slot.free .slot-label { color: var(--success); }
   .slot-team { font-weight: 700; font-size: 1.05rem; }
-  .slot-meta { font-size: 0.85rem; color: var(--muted); }
+  .slot-meta { font-size: 0.85rem; font-weight: 600; color: #334155; }
   .highlight { outline: 2px solid var(--accent); }
   /* One-shot pulse on the ● dot, fired only on an actual data refresh (see
      justSynced in the script below) -- not a continuous blink. A dot that
@@ -315,7 +319,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.14.5";
+const APP_VERSION = "26.08.14.6";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
