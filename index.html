@@ -314,7 +314,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.14.2";
+const APP_VERSION = "26.08.14.3";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -379,7 +379,7 @@ const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGG
 // inert: the consent banner never shows and gtag.js never loads. Not a
 // secret (Google's own docs treat measurement IDs as fine to embed in
 // public page source), so it's a plain constant, not a __PLACEHOLDER__.
-const GA_MEASUREMENT_ID = "";
+const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
 // =================================
 
 let allRows = [];
