@@ -263,8 +263,9 @@
   </div>
 </div>
 <div class="controls-row">
-  <button id="matchesToggle" class="toggle-btn">Matches</button>
   <div id="pitchToggleRow" style="display: contents;"></div>
+  <button id="todayToggle" class="toggle-btn">Today</button>
+  <button id="matchesToggle" class="toggle-btn">Matches</button>
 </div>
 
 <div class="filter-status" id="filterStatus"></div>
@@ -314,7 +315,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.14.4";
+const APP_VERSION = "26.08.14.5";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -385,6 +386,7 @@ const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
 let allRows = [];
 let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
 let matchesOnly = false;
+let todayOnly = false;
 // The currently-rendered (filtered) rows, in the same order as the mobile
 // cards' data-idx -- lets the tap-to-expand dialog look up full row detail
 // without re-parsing anything from the DOM.
@@ -749,22 +751,28 @@ function renderSchedule() {
   if (pitchDef) descParts.push(pitchDef.name.split(' — ')[0]);
   if (matchesOnly) descParts.push('matches');
   if (filter) descParts.push(`matching "${filter}"`);
+  // "today" describes the window, same slot "next 8 days" normally fills --
+  // not pushed into descParts, so it doesn't stack awkwardly with a real
+  // filter description (e.g. "Showing Pitch 1 · today", not "Showing Pitch
+  // 1 · today · next 8 days").
+  const windowText = todayOnly ? 'today' : 'next 8 days';
   statusEl.textContent = descParts.length
-    ? `Showing ${descParts.join(' · ')} · next 8 days`
-    : `Showing all pitches · next 8 days`;
+    ? `Showing ${descParts.join(' · ')} · ${windowText}`
+    : `Showing all pitches · ${windowText}`;
 
   const rows = allRows
     .filter(inWindow)
     .filter(r => !pitchFilter || (r.Pitch || '').trim() === pitchFilter)
     .filter(r => !filter || r.Team.toLowerCase().includes(filter))
     .filter(r => !matchesOnly || r.Type === 'Match')
+    .filter(r => !todayOnly || sameDay(r.dateObj, now))
     .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
 
   scheduleRows = rows;
 
   const panel = document.createElement('div');
   if (!rows.length) {
-    panel.innerHTML = `<div class="empty-msg">No ${descParts.length ? descParts.join(' ') : 'sessions'} in the next 8 days.</div>`;
+    panel.innerHTML = `<div class="empty-msg">No ${descParts.length ? descParts.join(' ') : 'sessions'} ${todayOnly ? 'today' : 'in the next 8 days'}.</div>`;
   } else {
     // Pitch column/pill only makes sense when showing more than one pitch at once.
     const showPitchCol = !pitchFilter;
@@ -859,6 +867,11 @@ searchClear.addEventListener('click', () => {
 document.getElementById('matchesToggle').addEventListener('click', () => {
   matchesOnly = !matchesOnly;
   document.getElementById('matchesToggle').classList.toggle('active', matchesOnly);
+  render();
+});
+document.getElementById('todayToggle').addEventListener('click', () => {
+  todayOnly = !todayOnly;
+  document.getElementById('todayToggle').classList.toggle('active', todayOnly);
   render();
 });
 
