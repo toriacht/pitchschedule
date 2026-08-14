@@ -131,6 +131,17 @@
   .dot-free-color { color: var(--dot-free); }
 
   .empty-msg { color: var(--muted); padding: 24px; text-align: center; }
+  /* First-paint placeholders, shown before loadData() resolves. Real markup
+     (renderNowNext / renderSchedule) overwrites these outright, so they never
+     need JS to be dismissed -- a slow or failed fetch just leaves them up,
+     which reads as "still loading" rather than a blank screen. */
+  .skeleton-bar {
+    display: inline-block; height: 0.9em; border-radius: 4px;
+    background: linear-gradient(90deg, var(--panel2) 25%, var(--bg) 50%, var(--panel2) 75%);
+    background-size: 200% 100%; animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skeleton-bar { animation: none; } }
   .pitch-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
   .type-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
   .type-training { background: var(--panel2); color: var(--accent2); }
@@ -205,7 +216,27 @@
   </div>
 </header>
 
-<div class="now-next-grid" id="nowNextGrid"></div>
+<!-- Static first-paint skeleton -- mirrors PITCHES in the script below.
+     renderNowNext() clears innerHTML and replaces this the moment data
+     arrives, so it's plain HTML, not JS-driven, and needs no update if the
+     real render is slow or the fetch fails. -->
+<div class="now-next-grid" id="nowNextGrid">
+  <div class="pitch-card" style="border-top: 4px solid #4fa8e8;">
+    <h2>Pitch 1 — Front Pitch</h2>
+    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+  </div>
+  <div class="pitch-card" style="border-top: 4px solid #1e3a5f;">
+    <h2>Pitch 2 — Back Pitch</h2>
+    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+  </div>
+  <div class="pitch-card" style="border-top: 4px solid #b7791f;">
+    <h2>Pitch 3 — Davy Allen Pitch</h2>
+    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+  </div>
+</div>
 
 <div class="controls-row">
   <div class="search-wrap">
@@ -219,7 +250,7 @@
 </div>
 
 <div class="filter-status" id="filterStatus"></div>
-<div id="panels"></div>
+<div id="panels"><div class="empty-msg">Loading schedule…</div></div>
 </div>
 
 <dialog id="bookingDetail" class="booking-detail">
@@ -238,7 +269,6 @@
   <div class="sync-rows" id="syncRows"></div>
 </dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ============ CONFIG ============
 // Apps Script doGet() Web App endpoint -- computed fresh on every request,
@@ -248,6 +278,16 @@
 // (CSV_URL Actions secret) -- see docs/adr/adr-0012-csv-url-secret-substitution.md.
 // This literal placeholder is never a working URL; that's expected here.
 const CSV_URL = "https://script.google.com/macros/s/AKfycbxRs_vTJseKnssbeNh-reDMlqiYgXJJvH0iU6ypa93jmhyjLYzAqDjGVzBlt1nCLkGb/exec";
+// Fired here, before the PapaParse <script> tag below, so the two network
+// requests (this fetch + the CDN library) run in parallel instead of
+// serialized -- PapaParse blocks HTML parsing while it downloads, so a
+// fetch() call placed after it (as this used to be) couldn't even start
+// until the CDN round-trip had already finished. loadData() picks this up
+// on its first run instead of starting its own request.
+window.__initialCsvFetch = fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cachebust=' + Date.now());
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
 const PITCHES = [
   // `color` is the crest hue and is what actually gets shown -- light blue,
   // navy, gold. Filled pills use it directly, paired with `text`.
@@ -511,7 +551,12 @@ function openSyncDetail() {
 }
 
 async function loadData() {
-  const res = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cachebust=' + Date.now());
+  // First call reuses the fetch already kicked off at the top of the page
+  // (see __initialCsvFetch above); every later call (the 5-min poll) starts
+  // its own, with a fresh cachebust.
+  const pending = window.__initialCsvFetch;
+  window.__initialCsvFetch = null;
+  const res = await (pending || fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'cachebust=' + Date.now()));
   const text = await res.text();
   const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
   allRows = parsed.data.map(r => {
