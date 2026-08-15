@@ -163,6 +163,9 @@
   tr.today-row { background: rgba(245,158,11,0.08) !important; }
   .team-cell { font-weight: 600; }
   .opponent-cell { color: var(--muted); }
+  /* Rows became clickable (adr-0019, to reach the score/detail dialog on
+     desktop -- previously only the mobile cards were tappable). */
+  tbody tr { cursor: pointer; }
   @media (hover: hover) { tbody tr:hover { background: var(--panel2) !important; } }
 
   /* ---- mobile schedule: compact cards instead of the table below 800px,
@@ -201,6 +204,28 @@
     border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.45;
   }
   .detail-sentence { font-size: 0.9rem; color: var(--muted); line-height: 1.5; margin: 0; padding-top: 12px; border-top: 1px solid var(--border); }
+  /* Community score entry (adr-0019). Kept visually low-key -- same panel2
+     tint the rest of the dialog already uses for secondary content, not a
+     bright call-to-action -- since this is a casual add-on, not the
+     dialog's main purpose. */
+  .detail-score { background: var(--panel2); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; }
+  .detail-score .score-final { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .detail-score .score-meta { color: var(--muted); margin-top: 2px; }
+  .detail-score .score-status { color: var(--muted); }
+  .detail-score .score-form { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .detail-score input[type="text"] {
+    width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.9rem; text-align: center;
+  }
+  .detail-score .score-vs { color: var(--muted); font-size: 0.85rem; }
+  .detail-score button {
+    padding: 6px 12px; border-radius: 999px; border: none; background: var(--accent2);
+    color: #ffffff; font-weight: 600; font-size: 0.82rem; cursor: pointer;
+  }
+  .detail-score .score-edit-link { background: none; border: none; color: var(--accent2); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; margin-top: 4px; }
+  .detail-score .score-error { color: #92400e; font-size: 0.8rem; margin-top: 4px; }
+  .detail-score .score-share { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .detail-score .score-share button { background: var(--panel); color: var(--accent2); border: 1px solid var(--accent2); }
   /* GA4 consent gate (adr-0018) -- shown only while the visitor hasn't yet
      said yes/no, and only when GA_MEASUREMENT_ID is actually configured.
      The banner itself has nothing to do with the self-hosted usage ping
@@ -283,6 +308,11 @@
   <div class="detail-datetime" id="detailDatetime"></div>
   <div class="detail-opponent" id="detailOpponent"></div>
   <div class="detail-ambiguous" id="detailAmbiguous"></div>
+  <!-- Community score entry (adr-0019) -- Match rows only, populated by
+       renderScoreSection_(). Casual/fun, not the authoritative record; see
+       the ADR for why this piggybacks on the existing detail dialog
+       instead of a new page. -->
+  <div class="detail-score" id="detailScore"></div>
   <p class="detail-sentence" id="detailSentence"></p>
 </dialog>
 
@@ -319,7 +349,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.14.8";
+const APP_VERSION = "26.08.15.1";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -783,7 +813,7 @@ function renderSchedule() {
 
     // ---- desktop: table (unchanged) ----
     let tableHtml = `<table class="desktop-schedule"><thead><tr>${showPitchCol ? '<th>Pitch</th>' : ''}<th>Date</th><th>Time</th><th>Team</th><th>Type</th><th>Opponent</th></tr></thead><tbody>`;
-    rows.forEach(r => {
+    rows.forEach((r, idx) => {
       const isToday = sameDay(r.dateObj, now);
       let pitchCell = '';
       if (showPitchCol) {
@@ -799,7 +829,7 @@ function renderSchedule() {
         pitchCell = `<td><span class="pitch-badge" style="background:${color}22;color:${label};border:1px solid ${color}88;">${pitchName}</span></td>`;
       }
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
-      tableHtml += `<tr class="${isToday ? 'today-row' : ''}">
+      tableHtml += `<tr class="${isToday ? 'today-row' : ''}" data-idx="${idx}">
         ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${displayTime(r)}</td><td class="team-cell">${r.Team}</td>
         <td><span class="type-badge ${typeClass}">${r.Type}</span></td>
         <td class="opponent-cell">${r.Opponent || ''}</td>
@@ -879,16 +909,124 @@ document.getElementById('todayToggle').addEventListener('click', () => {
   render();
 });
 
-// ---------- Tap-to-expand on mobile schedule cards ----------
-// #panels itself never gets replaced (only its contents do on each render),
-// so one delegated listener here covers every card across every re-render.
-const bookingDetail = document.getElementById('bookingDetail');
-document.getElementById('panels').addEventListener('click', (e) => {
-  const card = e.target.closest('.booking-card');
-  if (!card) return;
-  const r = scheduleRows[Number(card.dataset.idx)];
-  if (!r) return;
+// ---------- Community score entry (adr-0019) ----------
+// Casual/fun, not the authoritative record. Pure mirror of Code.gs's
+// scoreEditWindow_() -- duplicated rather than shared (there's no shared
+// module between the two runtimes), kept deliberately tiny so drift is
+// easy to spot on review. The server call is what's actually authoritative;
+// this only decides what UI to show.
+function scoreEditWindowClient_(matchMidnight, startMin, now) {
+  if (startMin === '' || startMin === null || startMin === undefined || isNaN(startMin)) {
+    return { open: false, reason: 'has no stated kickoff time' };
+  }
+  const kickoff = new Date(matchMidnight.getTime() + Number(startMin) * 60000);
+  const opensAt = new Date(kickoff.getTime() - 3 * 3600000);
+  const closesAt = new Date(matchMidnight.getTime() + 24 * 3600000);
+  if (now < opensAt) return { open: false, reason: 'opens at ' + fmtTime(opensAt.getHours() * 60 + opensAt.getMinutes()) };
+  if (now >= closesAt) return { open: false, reason: 'has closed' };
+  return { open: true, reason: '' };
+}
 
+function matchShareUrl_(matchId) {
+  const url = new URL(location.href);
+  url.search = '?match=' + encodeURIComponent(matchId);
+  return url.toString();
+}
+
+async function submitScore_(matchId, scoreFor, scoreAgainst) {
+  const params = new URLSearchParams({
+    action: 'submitScore', match: matchId, scoreFor, scoreAgainst,
+    device: usagePingDeviceId_(), cachebust: Date.now()
+  });
+  const res = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + params.toString());
+  return (await res.text()).trim();
+}
+
+const SCORE_FORMAT_RE = /^\d{1,3}-\d{1,3}$/;
+
+// Renders the score section for the currently-open dialog's row `r`.
+// Re-invoked after a successful submit so the dialog reflects the save
+// immediately, without waiting for the next 5-min poll.
+function renderScoreSection_(r) {
+  const el = document.getElementById('detailScore');
+  const matchId = r['Match ID'];
+  if (r.Type !== 'Match' || !matchId) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  const hasScore = r['Score For'] && r['Score Against'];
+  const shareRow = `<div class="score-share">
+      <span class="score-status">Anyone can add this score, Wikipedia-style.</span>
+      <button type="button" id="scoreShareBtn">Copy match link</button>
+    </div>`;
+
+  if (hasScore) {
+    const updated = r['Score Updated'] ? new Date(r['Score Updated']) : null;
+    el.innerHTML = `
+      <div class="score-final">${r.Team} ${r['Score For']} – ${r['Score Against']} ${r.Opponent || ''}</div>
+      ${updated ? `<div class="score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+      <div id="scoreEditArea"></div>
+      ${shareRow}`;
+    const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
+    if (window.open) {
+      const link = document.createElement('button');
+      link.type = 'button'; link.className = 'score-edit-link'; link.textContent = 'Edit score';
+      link.addEventListener('click', () => renderScoreForm_(r), { once: true });
+      document.getElementById('scoreEditArea').appendChild(link);
+    }
+  } else {
+    const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
+    el.innerHTML = `<div id="scoreEditArea"></div>${shareRow}`;
+    if (window.open) renderScoreForm_(r);
+    else document.getElementById('scoreEditArea').innerHTML = `<div class="score-status">Score entry ${window.reason}.</div>`;
+  }
+
+  document.getElementById('scoreShareBtn').addEventListener('click', async (ev) => {
+    const url = matchShareUrl_(matchId);
+    try { await navigator.clipboard.writeText(url); ev.target.textContent = 'Copied!'; }
+    catch (err) { ev.target.textContent = url; } // clipboard API unavailable -- show the link as text instead
+    setTimeout(() => { ev.target.textContent = 'Copy match link'; }, 2000);
+  });
+}
+
+function renderScoreForm_(r) {
+  const area = document.getElementById('scoreEditArea');
+  area.innerHTML = `
+    <div class="score-form">
+      <input type="text" id="scoreForInput" placeholder="e.g. 2-15" inputmode="numeric" value="${r['Score For'] || ''}">
+      <span class="score-vs">–</span>
+      <input type="text" id="scoreAgainstInput" placeholder="e.g. 1-12" inputmode="numeric" value="${r['Score Against'] || ''}">
+      <button type="button" id="scoreSaveBtn">Save score</button>
+    </div>
+    <div class="score-error" id="scoreErrorMsg" style="display:none;"></div>`;
+  document.getElementById('scoreSaveBtn').addEventListener('click', async () => {
+    const scoreFor = document.getElementById('scoreForInput').value.trim();
+    const scoreAgainst = document.getElementById('scoreAgainstInput').value.trim();
+    const errEl = document.getElementById('scoreErrorMsg');
+    if (!SCORE_FORMAT_RE.test(scoreFor) || !SCORE_FORMAT_RE.test(scoreAgainst)) {
+      errEl.textContent = 'Score should look like "2-15" (goals-points).';
+      errEl.style.display = '';
+      return;
+    }
+    const btn = document.getElementById('scoreSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const result = await submitScore_(r['Match ID'], scoreFor, scoreAgainst).catch(() => 'error: network');
+    if (result.startsWith('ok')) {
+      r['Score For'] = scoreFor; r['Score Against'] = scoreAgainst; r['Score Updated'] = new Date().toISOString();
+      renderScoreSection_(r);
+    } else {
+      errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not save the score -- try again.';
+      errEl.style.display = '';
+      btn.disabled = false; btn.textContent = 'Save score';
+    }
+  });
+}
+
+// ---------- Tap-to-expand on schedule rows (mobile cards + desktop table) ----------
+// #panels itself never gets replaced (only its contents do on each render),
+// so one delegated listener here covers every row/card across every
+// re-render, on both layouts.
+const bookingDetail = document.getElementById('bookingDetail');
+function openBookingDetail_(r) {
   const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
   const pitchName = rowPitchDef ? rowPitchDef.name : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away fixture');
   const fill = rowPitchDef ? rowPitchDef.color : '#64748b';
@@ -918,6 +1056,7 @@ document.getElementById('panels').addEventListener('click', (e) => {
   } else {
     ambiguousEl.style.display = 'none';
   }
+  renderScoreSection_(r);
   // Details is the original email sentence -- the only place it's ever
   // shown; the compact card and table both only show the parsed-out fields.
   const sentenceEl = document.getElementById('detailSentence');
@@ -925,8 +1064,26 @@ document.getElementById('panels').addEventListener('click', (e) => {
   else { sentenceEl.style.display = 'none'; }
 
   bookingDetail.showModal();
+}
+document.getElementById('panels').addEventListener('click', (e) => {
+  const target = e.target.closest('.booking-card, tbody tr[data-idx]');
+  if (!target) return;
+  const r = scheduleRows[Number(target.dataset.idx)];
+  if (!r) return;
+  openBookingDetail_(r);
 });
 document.getElementById('detailClose').addEventListener('click', () => bookingDetail.close());
+
+// ?match=<id> deep link -- opens straight to that match's existing detail
+// dialog (adr-0019) instead of a separate page. Searches allRows, not just
+// the currently-filtered scheduleRows, since a shared link may point at a
+// match outside the default "next 8 days" / current filter view.
+function openMatchFromUrl_() {
+  const matchId = new URLSearchParams(location.search).get('match');
+  if (!matchId) return;
+  const r = allRows.find(row => row['Match ID'] === matchId);
+  if (r) openBookingDetail_(r);
+}
 
 // Freshness detail -- the pill itself stays near-invisible, this is where the
 // actual information lives.
@@ -1023,7 +1180,10 @@ function loadGa4_() {
   });
 })();
 
-loadData();
+// openMatchFromUrl_ chained onto the FIRST load only -- the periodic poll
+// below re-fetches independently and must never re-open the dialog out
+// from under someone mid-edit.
+loadData().then(openMatchFromUrl_);
 setInterval(loadData, REFRESH_MS);
 </script>
 </body>
