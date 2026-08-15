@@ -28,6 +28,11 @@
   body {
     margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg); color: var(--text); padding: 16px;
+    /* Bottom nav (adr-0020) is fixed, so content needs room to clear it --
+       same overlap bug the GA4 consent banner already has (unfixed, out of
+       scope there); the nav bar is deliberately built to avoid it from
+       the start via this padding + safe-area inset for notched phones. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden; /* backstop -- nothing should be able to widen the whole page */
   }
   .page-wrap { max-width: 980px; margin: 0 auto; }
@@ -204,34 +209,16 @@
     border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.45;
   }
   .detail-sentence { font-size: 0.9rem; color: var(--muted); line-height: 1.5; margin: 0; padding-top: 12px; border-top: 1px solid var(--border); }
-  /* Community score entry (adr-0019). Kept visually low-key -- same panel2
-     tint the rest of the dialog already uses for secondary content, not a
-     bright call-to-action -- since this is a casual add-on, not the
-     dialog's main purpose. */
-  .detail-score { background: var(--panel2); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; }
-  .detail-score .score-final { font-size: 1rem; font-weight: 700; color: var(--text); }
-  .detail-score .score-meta { color: var(--muted); margin-top: 2px; }
-  .detail-score .score-status { color: var(--muted); }
-  .detail-score .score-form { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-  .detail-score input[type="text"] {
-    width: 64px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
-    font-size: 0.9rem; text-align: center;
-  }
-  .detail-score .score-vs { color: var(--muted); font-size: 0.85rem; }
-  .detail-score button {
-    padding: 6px 12px; border-radius: 999px; border: none; background: var(--accent2);
-    color: #ffffff; font-weight: 600; font-size: 0.82rem; cursor: pointer;
-  }
-  .detail-score .score-edit-link { background: none; border: none; color: var(--accent2); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; margin-top: 4px; }
-  .detail-score .score-error { color: #92400e; font-size: 0.8rem; margin-top: 4px; }
-  .detail-score .score-share { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .detail-score .score-share button { background: var(--panel); color: var(--accent2); border: 1px solid var(--accent2); }
   /* GA4 consent gate (adr-0018) -- shown only while the visitor hasn't yet
      said yes/no, and only when GA_MEASUREMENT_ID is actually configured.
      The banner itself has nothing to do with the self-hosted usage ping
      (adr-0017), which needs no consent -- see that ADR for why. */
   .consent-banner {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    /* Sits above the bottom nav (adr-0020), not overlapping it -- the nav
+       is a permanent fixture now, unlike this banner which is transient
+       (shown once, until a choice is made), so the banner has to be the
+       one that moves. */
+    position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 45;
     background: var(--panel); border-top: 1px solid var(--border);
     padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 12px;
     align-items: center; justify-content: space-between;
@@ -244,6 +231,100 @@
     font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
   }
   .consent-btn.accept { background: var(--accent2); color: #ffffff; }
+
+  /* ---------- Bottom nav + tabs (adr-0020) ---------- */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; background: var(--panel); border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 10px rgba(15,23,42,0.06);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 9px 4px 7px; border: none; background: none; color: var(--muted);
+    font-size: 0.68rem; font-weight: 600; cursor: pointer;
+  }
+  .nav-btn.active { color: var(--accent2); }
+  .nav-icon { font-size: 1.15rem; line-height: 1; }
+  .tab-page[hidden] { display: none; }
+  .section-heading-row { display: flex; align-items: center; justify-content: space-between; margin: 20px 2px 8px; }
+  .section-heading { font-size: 0.95rem; font-weight: 700; margin: 0; }
+  .view-all-link { background: none; border: none; color: var(--accent2); font-weight: 600; font-size: 0.82rem; cursor: pointer; padding: 0; }
+
+  /* Reuses .booking-card's visual language for Today's Matches (Home) and
+     the Matches tab, rather than inventing new card styling. */
+  .match-live-badge {
+    display: inline-block; background: #dc2626; color: #ffffff; font-size: 0.65rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 2px 7px; border-radius: 999px; margin-right: 6px;
+  }
+  .match-card-score { font-weight: 700; font-size: 0.85rem; color: var(--text); margin-top: 2px; }
+  .matches-day-group .booking-card { cursor: pointer; }
+
+  /* ---------- Full-screen match view (adr-0020) ---------- */
+  .match-view {
+    position: fixed; inset: 0; z-index: 60; background: var(--bg);
+    overflow-y: auto; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  .match-view[hidden] { display: none; }
+  .match-view-topbar {
+    position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px;
+    background: var(--panel); padding: 14px 16px; box-shadow: 0 1px 0 var(--border);
+  }
+  .match-view-back {
+    border: none; background: var(--panel2); color: var(--text); width: 34px; height: 34px;
+    border-radius: 999px; font-size: 1.1rem; cursor: pointer; flex: 0 0 auto;
+  }
+  .match-view-topbar-title { font-weight: 700; font-size: 1rem; }
+  .match-view-body { max-width: 560px; margin: 0 auto; padding: 20px 16px; }
+  .match-view-header { text-align: center; margin-bottom: 18px; }
+  .match-view-crests { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 10px; }
+  .match-view-crest-col { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 110px; }
+  .match-view-crest-img { width: 56px; height: 56px; object-fit: contain; }
+  .match-view-crest-fallback {
+    width: 56px; height: 56px; border-radius: 999px; background: var(--panel2); color: var(--accent2);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem;
+  }
+  .match-view-crest-name { font-size: 0.8rem; font-weight: 600; text-align: center; line-height: 1.25; }
+  .match-view-vs { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+  .match-view-meta { color: var(--muted); font-size: 0.9rem; }
+
+  /* ---------- Quick Score tally (adr-0020, a +/- counter, not incremental live scoring) ---------- */
+  .quick-score { background: var(--panel); border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); margin-bottom: 16px; }
+  .quick-score-side { margin-bottom: 14px; }
+  .quick-score-side:last-child { margin-bottom: 0; }
+  .quick-score-side-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
+  .quick-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
+  .quick-score-btn {
+    width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--accent2);
+    background: var(--panel); color: var(--accent2); font-size: 1rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .quick-score-count { min-width: 24px; text-align: center; font-weight: 700; font-size: 1rem; }
+  .quick-score-total { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+  .quick-score-final { text-align: center; font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+  .quick-score-meta { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
+  .quick-score-status { text-align: center; color: var(--muted); font-size: 0.88rem; padding: 10px 0; }
+
+  .match-view-share { text-align: center; }
+  .match-view-share button { margin: 4px; }
+  .match-view-qr { margin: 14px auto 0; display: block; width: 160px; height: 160px; }
+  .match-view-qr svg { width: 100%; height: 100%; }
+  .score-status { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; }
+  .score-error { color: #92400e; font-size: 0.8rem; margin-top: 8px; text-align: center; }
+  .match-view-share button {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent2);
+    background: var(--panel); color: var(--accent2); font-weight: 600; font-size: 0.82rem; cursor: pointer;
+  }
+
+  /* ---------- More tab (adr-0020) -- informational only ---------- */
+  .more-list { margin-top: 8px; }
+  .more-item { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+  .more-item-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .more-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  .more-version { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -263,43 +344,108 @@
   </div>
 </header>
 
-<!-- Static first-paint skeleton -- mirrors PITCHES in the script below.
-     renderNowNext() clears innerHTML and replaces this the moment data
-     arrives, so it's plain HTML, not JS-driven, and needs no update if the
-     real render is slow or the fetch fails. -->
-<div class="now-next-grid" id="nowNextGrid">
-  <div class="pitch-card" style="border-top: 4px solid #4fa8e8;">
-    <h2>Pitch 1 — Front Pitch</h2>
-    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
-    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+<!-- ---------- Tab: Home (adr-0020) ---------- -->
+<section id="tabHome" class="tab-page">
+  <!-- Static first-paint skeleton -- mirrors PITCHES in the script below.
+       renderNowNext() clears innerHTML and replaces this the moment data
+       arrives, so it's plain HTML, not JS-driven, and needs no update if
+       the real render is slow or the fetch fails. -->
+  <div class="now-next-grid" id="nowNextGrid">
+    <div class="pitch-card" style="border-top: 4px solid #4fa8e8;">
+      <h2>Pitch 1 — Front Pitch</h2>
+      <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+      <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+    </div>
+    <div class="pitch-card" style="border-top: 4px solid #1e3a5f;">
+      <h2>Pitch 2 — Back Pitch</h2>
+      <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+      <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+    </div>
+    <div class="pitch-card" style="border-top: 4px solid #b7791f;">
+      <h2>Pitch 3 — Davy Allen Pitch</h2>
+      <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
+      <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+    </div>
   </div>
-  <div class="pitch-card" style="border-top: 4px solid #1e3a5f;">
-    <h2>Pitch 2 — Back Pitch</h2>
-    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
-    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+  <div id="todayMatchesSection" style="display:none;">
+    <div class="section-heading-row">
+      <h2 class="section-heading">Today's Matches</h2>
+      <button type="button" class="view-all-link" id="viewAllMatchesBtn">View all</button>
+    </div>
+    <div id="todayMatchesPreview"></div>
   </div>
-  <div class="pitch-card" style="border-top: 4px solid #b7791f;">
-    <h2>Pitch 3 — Davy Allen Pitch</h2>
-    <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
-    <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
+</section>
+
+<!-- ---------- Tab: Schedule (adr-0020) -- the full list, unchanged, just relocated ---------- -->
+<section id="tabSchedule" class="tab-page" hidden>
+  <div class="controls-row">
+    <div class="search-wrap">
+      <input id="search" type="text" placeholder="Filter by team… e.g. U14 boys">
+      <button id="searchClear" class="search-clear" aria-label="Clear search" style="display:none;">✕</button>
+    </div>
   </div>
+  <div class="controls-row">
+    <div id="pitchToggleRow" style="display: contents;"></div>
+    <button id="todayToggle" class="toggle-btn">Today</button>
+    <button id="matchesToggle" class="toggle-btn">Matches</button>
+  </div>
+  <div class="filter-status" id="filterStatus"></div>
+  <div id="panels"><div class="empty-msg">Loading schedule…</div></div>
+</section>
+
+<!-- ---------- Tab: Matches (new, adr-0020) ---------- -->
+<section id="tabMatches" class="tab-page" hidden>
+  <div class="controls-row">
+    <button type="button" class="toggle-btn active" data-range="week">This Week</button>
+    <button type="button" class="toggle-btn" data-range="nextWeek">Next Week</button>
+    <button type="button" class="toggle-btn" data-range="all">All</button>
+  </div>
+  <div id="matchesTabPanel"><div class="empty-msg">Loading matches…</div></div>
+</section>
+
+<!-- ---------- Tab: More (adr-0020) -- informational only, no admin login ---------- -->
+<section id="tabMore" class="tab-page" hidden>
+  <div class="more-list">
+    <div class="more-item">
+      <div class="more-item-title">Pitch information</div>
+      <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are shared by Athlone GAA and Southern Gaels. Bookings come straight from the club's fixtures &amp; training email.</div>
+    </div>
+    <div class="more-item">
+      <div class="more-item-title">How to use this app</div>
+      <div class="more-item-body">Tap a pitch card on Home to see what's on there next. Tap any match to see full details, share it, or (if it's within a few hours of throw-in) add the score. Install it to your home screen for one-tap access.</div>
+    </div>
+    <div class="more-item">
+      <div class="more-item-title">About Athlone GAA</div>
+      <div class="more-item-body">Athlone GAA — Gaelic football, hurling and camogie for all ages in Athlone, Co. Westmeath.</div>
+    </div>
+    <div class="more-item">
+      <div class="more-item-title">Contact / feedback</div>
+      <div class="more-item-body">Spotted something wrong with the schedule, or have a suggestion? Get in touch with the club through the usual channels.</div>
+    </div>
+  </div>
+  <div class="more-version" id="moreVersion"></div>
+</section>
+
 </div>
 
-<div class="controls-row">
-  <div class="search-wrap">
-    <input id="search" type="text" placeholder="Filter by team… e.g. U14 boys">
-    <button id="searchClear" class="search-clear" aria-label="Clear search" style="display:none;">✕</button>
+<!-- ---------- Full-screen match view (adr-0020) -- Match rows only.
+     Reached by tapping a match anywhere, or the ?match=<id> URL. Training
+     rows keep using the existing bookingDetail modal below, unchanged. ---------- -->
+<div id="matchView" class="match-view" hidden>
+  <div class="match-view-topbar">
+    <button type="button" class="match-view-back" id="matchViewBack" aria-label="Back">←</button>
+    <span class="match-view-topbar-title">Match</span>
   </div>
-</div>
-<div class="controls-row">
-  <div id="pitchToggleRow" style="display: contents;"></div>
-  <button id="todayToggle" class="toggle-btn">Today</button>
-  <button id="matchesToggle" class="toggle-btn">Matches</button>
+  <div class="match-view-body" id="matchViewBody"></div>
 </div>
 
-<div class="filter-status" id="filterStatus"></div>
-<div id="panels"><div class="empty-msg">Loading schedule…</div></div>
-</div>
+<!-- ---------- Bottom navigation (adr-0020) ---------- -->
+<nav class="bottom-nav" id="bottomNav">
+  <button type="button" class="nav-btn active" data-tab="home"><span class="nav-icon">⌂</span><span>Home</span></button>
+  <button type="button" class="nav-btn" data-tab="schedule"><span class="nav-icon">📅</span><span>Schedule</span></button>
+  <button type="button" class="nav-btn" data-tab="matches"><span class="nav-icon">🏆</span><span>Matches</span></button>
+  <button type="button" class="nav-btn" data-tab="more"><span class="nav-icon">☰</span><span>More</span></button>
+</nav>
 
 <dialog id="bookingDetail" class="booking-detail">
   <button class="detail-close" id="detailClose" aria-label="Close">✕</button>
@@ -308,11 +454,6 @@
   <div class="detail-datetime" id="detailDatetime"></div>
   <div class="detail-opponent" id="detailOpponent"></div>
   <div class="detail-ambiguous" id="detailAmbiguous"></div>
-  <!-- Community score entry (adr-0019) -- Match rows only, populated by
-       renderScoreSection_(). Casual/fun, not the authoritative record; see
-       the ADR for why this piggybacks on the existing detail dialog
-       instead of a new page. -->
-  <div class="detail-score" id="detailScore"></div>
   <p class="detail-sentence" id="detailSentence"></p>
 </dialog>
 
@@ -349,7 +490,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.15.1";
+const APP_VERSION = "26.08.16.1";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -417,10 +558,124 @@ const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGG
 const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
 // =================================
 
+// ---------- Club crests (adr-0020) ----------
+// Best-effort, not exhaustive. crestFor() falls back to null (caller
+// renders an initials badge) rather than guessing wrong. Some real
+// opponent names are deliberately left unmapped -- e.g. bare "Mullingar"
+// could mean either St Loman's Mullingar or Mullingar Shamrocks, two
+// different real clubs, and the fixture data alone can't disambiguate.
+// The crest set itself is Westmeath GAA clubs only, so any opponent from
+// outside the county (or any typo/variant not covered here) correctly
+// falls back too. Grow this table as real mismatches turn up.
+const CREST_FILE = {
+  'athlone': 'Athlone.png',
+  'ballinagore': 'Ballinagore.jpg',
+  'ballycomoyle': 'Ballycomoyle.png',
+  'ballymore': 'Ballymore.jpg',
+  'ballynacargy': 'Ballynacargy.png',
+  'brownstown': 'Brownstown.png',
+  'bunbrosna': 'Bunbrosna.png',
+  'castledaly': 'Castledaly.png',
+  'castlepollard': 'Castlepollard.png',
+  'castletown finea coole whitehall': 'Castletown_Finea_Coole_Whitehall.png',
+  'castletown geoghegan': 'Castletown_Geoghegan.png',
+  'caulry': 'Caulry.png',
+  'coralstown kinnegad': 'Coralstown-Kinnegad.png',
+  'crookedwood': 'Crookedwood.png',
+  'cullion': 'Cullion.png',
+  'delvin': 'Delvin.png',
+  'fr daltons': 'Fr_Daltons.png',
+  'garrycastle': 'Garrycastle.jpeg',
+  'kilbeggan shamrocks': 'Kilbeggan_Shamrocks.jpeg',
+  'killucan': 'Killucan.jpeg',
+  'lough lene gaels': 'Lough_Lene_Gaels.png',
+  'loughnavalley': 'Loughnavalley.jpg',
+  'maryland': 'Maryland.png',
+  'milltown': 'Milltown.jpeg',
+  'milltownpass': 'Milltownpass.jpeg',
+  'moate all whites': 'Moate_All_Whites.png',
+  'mullingar shamrocks': 'Mullingar_Shamrocks.jpeg',
+  'multyfarnham': 'Multyfarnham.png',
+  'raharney': 'Raharney.png',
+  'ringtown': 'Ringtown.png',
+  'rosemount': 'Rosemount.jpeg',
+  'shandonagh': 'Shandonagh.jpeg',
+  'southern gaels': 'Southern_Gaels.jpg',
+  'st brigids': 'St_Brigids.png',
+  'st josephs': 'St_Josephs.png',
+  'st lomans mullingar': 'St_Lomans_Mullingar.jpeg',
+  'st malachys': 'St_Malachys.jpeg',
+  'st marys rochfortbridge': 'St_Marys_Rochfortbridge.png',
+  'st oliver plunketts': 'St_Oliver_Plunketts.png',
+  'st pauls': 'St_Pauls.png',
+  'tang': 'Tang.jpg',
+  'the downs': 'The_Downs.jpeg',
+  'tubberclair': 'Tubberclair.jpg',
+  'turin': 'Turin.png',
+  'tyrrellspass': 'Tyrrellspass.png',
+};
+// Fixture-email spellings that don't normalize straight onto a canonical
+// key above -- e.g. "Kinnegad" alone for the amalgamated Coralstown-
+// Kinnegad club. Not a guess: each of these is an unambiguous shorthand
+// for one specific club above, unlike the deliberately-omitted "Mullingar".
+const CREST_ALIAS = {
+  'kinnegad': 'coralstown kinnegad',
+  'moate': 'moate all whites',
+  'moates': 'moate all whites',
+  'st lomans': 'st lomans mullingar',
+  'coole whitehall': 'castletown finea coole whitehall',
+};
+function normalizeClubName_(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[.\-]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// Returns a crests/<file> path, or null if nothing confidently resolves --
+// callers render an initials badge in that case, not a broken image.
+function crestFor(rawName) {
+  const norm = normalizeClubName_(rawName);
+  if (!norm) return null;
+  // The club's own teams: any age-grade/gender suffix ("U16 boys",
+  // "Adults (H)", "Cubs boys & girls (3-5)"...) still starts with the
+  // club name, so a prefix check covers every current and future variant
+  // without needing to enumerate them.
+  if (norm.startsWith('athlone')) return 'crests/Athlone.png';
+  if (norm.startsWith('southern gaels')) return 'crests/Southern_Gaels.jpg';
+
+  const tryKey = (key) => {
+    const canonical = CREST_ALIAS[key] || key;
+    return CREST_FILE[canonical] ? 'crests/' + CREST_FILE[canonical] : null;
+  };
+  let hit = tryKey(norm);
+  if (hit) return hit;
+
+  // Combined parish names ("Delvin/St. Paul's") -- try each segment.
+  if (rawName.includes('/')) {
+    for (const part of rawName.split('/')) {
+      hit = tryKey(normalizeClubName_(part));
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+function initialsFor(name) {
+  return String(name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+}
+
 let allRows = [];
 let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
 let matchesOnly = false;
 let todayOnly = false;
+// Bottom nav (adr-0020): in-memory only, not URL-synced, same as the
+// filter state above -- consistent with this app's existing precedent
+// rather than adding new routing infrastructure. matchesRange is the
+// Matches tab's own sub-filter, independent of the Schedule tab's toggles.
+let currentTab_ = 'home';
+let matchesRange_ = 'week';
 // The currently-rendered (filtered) rows, in the same order as the mobile
 // cards' data-idx -- lets the tap-to-expand dialog look up full row detail
 // without re-parsing anything from the DOM.
@@ -873,7 +1128,125 @@ function render() {
   renderNowNext();
   renderPitchToggles();
   renderSchedule();
+  renderTodayMatchesPreview_();
+  renderMatchesTab_();
 }
+
+// ---------- Bottom nav tab switching (adr-0020) ----------
+// All four tabs render unconditionally on every render() call regardless
+// of which is visible -- data volume here is small, and it avoids a whole
+// class of "switched tabs and it's stale" bugs that lazy-rendering would
+// risk for no real performance cost at this scale.
+function switchTab_(name) {
+  currentTab_ = name;
+  ['home', 'schedule', 'matches', 'more'].forEach(t => {
+    document.getElementById('tab' + t[0].toUpperCase() + t.slice(1)).hidden = t !== name;
+  });
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab_(btn.dataset.tab));
+});
+document.getElementById('viewAllMatchesBtn').addEventListener('click', () => switchTab_('matches'));
+
+// ---------- Today's Matches (Home) + Matches tab (adr-0020) ----------
+// Shared card markup -- reuses .booking-card's existing visual language
+// (already used by the mobile schedule cards) rather than inventing new
+// styling, plus a derived LIVE badge and inline score where one exists.
+function isMatchLive_(r, now) {
+  return !!r.time && sameDay(r.dateObj, now) &&
+    now.getHours() * 60 + now.getMinutes() >= r.time.start &&
+    now.getHours() * 60 + now.getMinutes() < r.time.end;
+}
+function matchCardHtml_(r, idx, now) {
+  const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
+  const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
+  const live = isMatchLive_(r, now);
+  const scoreText = (r['Score For'] && r['Score Against']) ? `${r['Score For']} – ${r['Score Against']}` : '';
+  return `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
+    <div class="booking-top">
+      <div class="booking-left">${live ? '<span class="match-live-badge">Live</span>' : ''}<span class="booking-time">${displayTime(r)}</span></div>
+    </div>
+    <div class="booking-team">${r.Team}</div>
+    ${r.Opponent ? `<div class="booking-opponent">vs ${r.Opponent}</div>` : ''}
+    ${scoreText ? `<div class="match-card-score">${scoreText}</div>` : ''}
+  </div>`;
+}
+
+let todayMatchesRows_ = [];
+function renderTodayMatchesPreview_() {
+  const now = new Date();
+  const rows = allRows.filter(r => r.Type === 'Match' && sameDay(r.dateObj, now))
+    .sort((a, b) => (a.time?.start ?? Infinity) - (b.time?.start ?? Infinity));
+  todayMatchesRows_ = rows;
+  const section = document.getElementById('todayMatchesSection');
+  if (!rows.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  document.getElementById('todayMatchesPreview').innerHTML = rows.map((r, idx) => matchCardHtml_(r, idx, now)).join('');
+}
+document.getElementById('todayMatchesPreview').addEventListener('click', (e) => {
+  const card = e.target.closest('.booking-card');
+  if (!card) return;
+  const r = todayMatchesRows_[Number(card.dataset.idx)];
+  if (r) openRow_(r);
+});
+
+// Monday-start week, matching the GAA fixture week rather than a rolling
+// 7-day window -- "This Week"/"Next Week" should mean the same thing a
+// fixtures list already means by those words.
+function startOfWeek_(d) {
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+}
+function matchesForRange_(range, now) {
+  const rows = allRows.filter(r => r.Type === 'Match');
+  if (range === 'all') {
+    return rows.sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
+  }
+  const monday = startOfWeek_(now);
+  let start, end;
+  if (range === 'week') { start = atMidnight(now); end = new Date(monday.getTime() + 6 * 86400000); }
+  else { start = new Date(monday.getTime() + 7 * 86400000); end = new Date(monday.getTime() + 13 * 86400000); }
+  return rows.filter(r => { const rd = atMidnight(r.dateObj); return rd >= start && rd <= end; })
+    .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
+}
+
+let matchesTabRows_ = [];
+function renderMatchesTab_() {
+  const now = new Date();
+  const rows = matchesForRange_(matchesRange_, now);
+  matchesTabRows_ = rows;
+  const panel = document.getElementById('matchesTabPanel');
+  if (!rows.length) {
+    const noun = matchesRange_ === 'all' ? '' : (matchesRange_ === 'week' ? ' this week' : ' next week');
+    panel.innerHTML = `<div class="empty-msg">No matches${noun}.</div>`;
+    return;
+  }
+  let html = '', lastDateKey = null;
+  rows.forEach((r, idx) => {
+    const dateKey = r.dateObj.toDateString();
+    if (dateKey !== lastDateKey) { html += `<div class="day-heading">${fmtDayHeading(r.dateObj, now)}</div>`; lastDateKey = dateKey; }
+    html += matchCardHtml_(r, idx, now);
+  });
+  panel.innerHTML = `<div class="matches-day-group">${html}</div>`;
+}
+document.getElementById('matchesTabPanel').addEventListener('click', (e) => {
+  const card = e.target.closest('.booking-card');
+  if (!card) return;
+  const r = matchesTabRows_[Number(card.dataset.idx)];
+  if (r) openRow_(r);
+});
+document.querySelectorAll('#tabMatches [data-range]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    matchesRange_ = btn.dataset.range;
+    document.querySelectorAll('#tabMatches [data-range]').forEach(b => b.classList.toggle('active', b === btn));
+    renderMatchesTab_();
+  });
+});
+
+document.getElementById('moreVersion').textContent = 'Pitch Schedule ' + APP_VERSION_FULL;
 
 const searchInput = document.getElementById('search');
 const searchClear = document.getElementById('searchClear');
@@ -947,72 +1320,145 @@ const SCORE_FORMAT_RE = /^\d{1,3}-\d{1,3}$/;
 // Renders the score section for the currently-open dialog's row `r`.
 // Re-invoked after a successful submit so the dialog reflects the save
 // immediately, without waiting for the next 5-min poll.
-function renderScoreSection_(r) {
-  const el = document.getElementById('detailScore');
-  const matchId = r['Match ID'];
-  if (r.Type !== 'Match' || !matchId) { el.style.display = 'none'; return; }
-  el.style.display = '';
+// ---------- Full-screen match view (adr-0020) ----------
+// Match rows get this instead of the shared bookingDetail dialog --
+// Training rows are unaffected, see openBookingDetail_ below. Reached by
+// tapping a match anywhere, or the ?match=<id> URL (unchanged from
+// adr-0019 -- only what it opens into has changed).
+const matchView = document.getElementById('matchView');
+let matchViewReturnTab_ = 'home';
 
-  const hasScore = r['Score For'] && r['Score Against'];
-  const shareRow = `<div class="score-share">
-      <span class="score-status">Anyone can add this score, Wikipedia-style.</span>
-      <button type="button" id="scoreShareBtn">Copy match link</button>
+function openMatchView_(r) {
+  matchViewReturnTab_ = currentTab_;
+  const crestCol = (name, path) => `
+    <div class="match-view-crest-col">
+      ${path ? `<img class="match-view-crest-img" src="${path}" alt="">` : `<div class="match-view-crest-fallback">${initialsFor(name)}</div>`}
+      <div class="match-view-crest-name">${name}</div>
     </div>`;
+  const metaParts = [fmtDayHeading(r.dateObj, new Date())];
+  if (displayTime(r)) metaParts.push(displayTime(r));
+  metaParts.push(r.Pitch ? 'Pitch ' + r.Pitch : 'Away');
+
+  document.getElementById('matchViewBody').innerHTML = `
+    <div class="match-view-header">
+      <div class="match-view-crests">
+        ${crestCol(r.Team, crestFor(r.Team))}
+        <span class="match-view-vs">vs</span>
+        ${r.Opponent ? crestCol(r.Opponent, crestFor(r.Opponent)) : ''}
+      </div>
+      <div class="match-view-meta">${metaParts.join(' · ')}</div>
+    </div>
+    <div id="quickScoreArea"></div>
+    <div class="match-view-share" id="matchShareArea"></div>
+    ${r.Details ? `<p class="detail-sentence">${r.Details}</p>` : ''}`;
+
+  renderQuickScore_(r);
+  renderMatchShare_(r);
+  matchView.hidden = false;
+}
+document.getElementById('matchViewBack').addEventListener('click', () => {
+  matchView.hidden = true;
+  switchTab_(matchViewReturnTab_);
+});
+
+// Recorded score, an edit link while the window's open, the tally form
+// (open, no score yet), or a status line -- same four states adr-0019
+// established, just rendered into the match view instead of the dialog.
+function renderQuickScore_(r) {
+  const el = document.getElementById('quickScoreArea');
+  const matchId = r['Match ID'];
+  if (r.Type !== 'Match' || !matchId) { el.innerHTML = ''; return; }
+
+  const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
+  const hasScore = r['Score For'] && r['Score Against'];
 
   if (hasScore) {
     const updated = r['Score Updated'] ? new Date(r['Score Updated']) : null;
     el.innerHTML = `
-      <div class="score-final">${r.Team} ${r['Score For']} – ${r['Score Against']} ${r.Opponent || ''}</div>
-      ${updated ? `<div class="score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
-      <div id="scoreEditArea"></div>
-      ${shareRow}`;
-    const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
-    if (window.open) {
-      const link = document.createElement('button');
-      link.type = 'button'; link.className = 'score-edit-link'; link.textContent = 'Edit score';
-      link.addEventListener('click', () => renderScoreForm_(r), { once: true });
-      document.getElementById('scoreEditArea').appendChild(link);
-    }
-  } else {
-    const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
-    el.innerHTML = `<div id="scoreEditArea"></div>${shareRow}`;
-    if (window.open) renderScoreForm_(r);
-    else document.getElementById('scoreEditArea').innerHTML = `<div class="score-status">Score entry ${window.reason}.</div>`;
+      <div class="quick-score">
+        <div class="quick-score-final">${r.Team} ${r['Score For']} – ${r['Score Against']} ${r.Opponent || ''}</div>
+        ${updated ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+        ${window.open ? `<button type="button" class="view-all-link" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${window.reason}.</div>`}
+      </div>`;
+    if (window.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => renderQuickScoreForm_(r), { once: true });
+    return;
   }
 
-  document.getElementById('scoreShareBtn').addEventListener('click', async (ev) => {
-    const url = matchShareUrl_(matchId);
-    try { await navigator.clipboard.writeText(url); ev.target.textContent = 'Copied!'; }
-    catch (err) { ev.target.textContent = url; } // clipboard API unavailable -- show the link as text instead
-    setTimeout(() => { ev.target.textContent = 'Copy match link'; }, 2000);
-  });
+  if (!window.open) {
+    el.innerHTML = `<div class="quick-score"><div class="quick-score-status">Score entry ${window.reason}.</div></div>`;
+    return;
+  }
+  el.innerHTML = '';
+  renderQuickScoreForm_(r);
 }
 
-function renderScoreForm_(r) {
-  const area = document.getElementById('scoreEditArea');
-  area.innerHTML = `
-    <div class="score-form">
-      <input type="text" id="scoreForInput" placeholder="e.g. 2-15" inputmode="numeric" value="${r['Score For'] || ''}">
-      <span class="score-vs">–</span>
-      <input type="text" id="scoreAgainstInput" placeholder="e.g. 1-12" inputmode="numeric" value="${r['Score Against'] || ''}">
-      <button type="button" id="scoreSaveBtn">Save score</button>
+// +/- tally, not incremental live scoring (adr-0020) -- two independent
+// counts (Goals, Points) per side, clamped at 0, composing directly into
+// the "G-P" string submitScore_ already validates and stores. No backend
+// change from adr-0019; only this input mechanism is new.
+function renderQuickScoreForm_(r) {
+  const parseSide = (s) => {
+    const m = /^(\d+)-(\d+)$/.exec(s || '');
+    return m ? { goals: Number(m[1]), points: Number(m[2]) } : { goals: 0, points: 0 };
+  };
+  const state = { team: parseSide(r['Score For']), opp: parseSide(r['Score Against']) };
+
+  const el = document.getElementById('quickScoreArea');
+  const sideHtml = (label, key) => `
+    <div class="quick-score-side" data-side="${key}">
+      <div class="quick-score-side-name">${label}</div>
+      <div class="quick-score-row">
+        <span class="quick-score-row-label">Goal (3)</span>
+        <button type="button" class="quick-score-btn" data-op="dec" data-stat="goals">−</button>
+        <span class="quick-score-count" data-count="goals">${state[key].goals}</span>
+        <button type="button" class="quick-score-btn" data-op="inc" data-stat="goals">+</button>
+      </div>
+      <div class="quick-score-row">
+        <span class="quick-score-row-label">Point (1)</span>
+        <button type="button" class="quick-score-btn" data-op="dec" data-stat="points">−</button>
+        <span class="quick-score-count" data-count="points">${state[key].points}</span>
+        <button type="button" class="quick-score-btn" data-op="inc" data-stat="points">+</button>
+      </div>
+      <div class="quick-score-total" data-total>${state[key].goals}-${state[key].points}</div>
+    </div>`;
+  el.innerHTML = `
+    <div class="quick-score" id="quickScoreForm">
+      ${sideHtml(r.Team, 'team')}
+      ${sideHtml(r.Opponent || 'Opponent', 'opp')}
+      <button type="button" class="quick-score-save" id="quickScoreSaveBtn">Save score</button>
     </div>
     <div class="score-error" id="scoreErrorMsg" style="display:none;"></div>`;
-  document.getElementById('scoreSaveBtn').addEventListener('click', async () => {
-    const scoreFor = document.getElementById('scoreForInput').value.trim();
-    const scoreAgainst = document.getElementById('scoreAgainstInput').value.trim();
+
+  const form = document.getElementById('quickScoreForm');
+  const renderCounts = (key) => {
+    const sideEl = form.querySelector(`[data-side="${key}"]`);
+    sideEl.querySelector('[data-count="goals"]').textContent = state[key].goals;
+    sideEl.querySelector('[data-count="points"]').textContent = state[key].points;
+    sideEl.querySelector('[data-total]').textContent = `${state[key].goals}-${state[key].points}`;
+  };
+  form.querySelectorAll('.quick-score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const side = btn.closest('.quick-score-side').dataset.side;
+      const stat = btn.dataset.stat;
+      const delta = btn.dataset.op === 'inc' ? 1 : -1;
+      state[side][stat] = Math.max(0, state[side][stat] + delta);
+      renderCounts(side);
+    });
+  });
+  document.getElementById('quickScoreSaveBtn').addEventListener('click', async () => {
+    const scoreFor = `${state.team.goals}-${state.team.points}`;
+    const scoreAgainst = `${state.opp.goals}-${state.opp.points}`;
     const errEl = document.getElementById('scoreErrorMsg');
-    if (!SCORE_FORMAT_RE.test(scoreFor) || !SCORE_FORMAT_RE.test(scoreAgainst)) {
-      errEl.textContent = 'Score should look like "2-15" (goals-points).';
-      errEl.style.display = '';
-      return;
-    }
-    const btn = document.getElementById('scoreSaveBtn');
+    const btn = document.getElementById('quickScoreSaveBtn');
+    // The tally can only ever produce a valid "G-P" string -- SCORE_FORMAT_RE
+    // is still checked server-side (submitScore_ in Code.gs), just not
+    // re-checked here since the UI can't produce anything else.
     btn.disabled = true; btn.textContent = 'Saving…';
     const result = await submitScore_(r['Match ID'], scoreFor, scoreAgainst).catch(() => 'error: network');
     if (result.startsWith('ok')) {
       r['Score For'] = scoreFor; r['Score Against'] = scoreAgainst; r['Score Updated'] = new Date().toISOString();
-      renderScoreSection_(r);
+      errEl.style.display = 'none';
+      renderQuickScore_(r);
     } else {
       errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not save the score -- try again.';
       errEl.style.display = '';
@@ -1021,10 +1467,62 @@ function renderScoreForm_(r) {
   });
 }
 
+// ---------- QR code (adr-0020) ----------
+// Vendored qrcode.js (MIT, Kazuhiko Arase -- see the file's own header),
+// not a third-party image API: generating it locally means sharing a
+// match never sends the URL to an external service, consistent with this
+// project's no-third-party-request stance throughout. Lazy-loaded (only
+// the first time a QR is actually needed) rather than a page-wide
+// <script> tag, since most visits never open a match view at all.
+let qrcodeLoadPromise_ = null;
+function loadQrcodeLib_() {
+  if (window.qrcode) return Promise.resolve();
+  if (!qrcodeLoadPromise_) {
+    qrcodeLoadPromise_ = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'qrcode.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  return qrcodeLoadPromise_;
+}
+async function renderQrCode_(container, text) {
+  try {
+    await loadQrcodeLib_();
+    const qr = qrcode(0, 'M'); // typeNumber 0 = auto-pick the smallest version that fits
+    qr.addData(text);
+    qr.make();
+    container.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 8, scalable: true, alt: 'QR code for this match link' });
+    container.classList.add('match-view-qr');
+  } catch (err) {
+    console.error('QR code failed to load: ' + err); // non-fatal -- "Copy match link" still works without it
+  }
+}
+
+function renderMatchShare_(r) {
+  const matchId = r['Match ID'];
+  const el = document.getElementById('matchShareArea');
+  if (r.Type !== 'Match' || !matchId) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="score-status">Anyone can add this score, Wikipedia-style.</div>
+    <button type="button" id="matchShareCopyBtn">Copy match link</button>
+    <div id="matchShareQrHolder"></div>`;
+  document.getElementById('matchShareCopyBtn').addEventListener('click', async (ev) => {
+    const url = matchShareUrl_(matchId);
+    try { await navigator.clipboard.writeText(url); ev.target.textContent = 'Copied!'; }
+    catch (err) { ev.target.textContent = url; } // clipboard API unavailable -- show the link as text instead
+    setTimeout(() => { ev.target.textContent = 'Copy match link'; }, 2000);
+  });
+  renderQrCode_(document.getElementById('matchShareQrHolder'), matchShareUrl_(matchId));
+}
+
 // ---------- Tap-to-expand on schedule rows (mobile cards + desktop table) ----------
 // #panels itself never gets replaced (only its contents do on each render),
 // so one delegated listener here covers every row/card across every
-// re-render, on both layouts.
+// re-render, on both layouts. Match rows go to the full-screen view above;
+// everything else (Training, Blitz) keeps this plain info-only dialog.
 const bookingDetail = document.getElementById('bookingDetail');
 function openBookingDetail_(r) {
   const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
@@ -1056,7 +1554,6 @@ function openBookingDetail_(r) {
   } else {
     ambiguousEl.style.display = 'none';
   }
-  renderScoreSection_(r);
   // Details is the original email sentence -- the only place it's ever
   // shown; the compact card and table both only show the parsed-out fields.
   const sentenceEl = document.getElementById('detailSentence');
@@ -1065,24 +1562,28 @@ function openBookingDetail_(r) {
 
   bookingDetail.showModal();
 }
+function openRow_(r) {
+  if (r.Type === 'Match') openMatchView_(r);
+  else openBookingDetail_(r);
+}
 document.getElementById('panels').addEventListener('click', (e) => {
   const target = e.target.closest('.booking-card, tbody tr[data-idx]');
   if (!target) return;
   const r = scheduleRows[Number(target.dataset.idx)];
   if (!r) return;
-  openBookingDetail_(r);
+  openRow_(r);
 });
 document.getElementById('detailClose').addEventListener('click', () => bookingDetail.close());
 
-// ?match=<id> deep link -- opens straight to that match's existing detail
-// dialog (adr-0019) instead of a separate page. Searches allRows, not just
-// the currently-filtered scheduleRows, since a shared link may point at a
-// match outside the default "next 8 days" / current filter view.
+// ?match=<id> deep link -- opens straight to that match's full-screen view
+// (adr-0020; was the shared dialog under adr-0019). Searches allRows, not
+// just the currently-filtered scheduleRows, since a shared link may point
+// at a match outside the default "next 8 days" / current filter view.
 function openMatchFromUrl_() {
   const matchId = new URLSearchParams(location.search).get('match');
   if (!matchId) return;
   const r = allRows.find(row => row['Match ID'] === matchId);
-  if (r) openBookingDetail_(r);
+  if (r) openRow_(r);
 }
 
 // Freshness detail -- the pill itself stays near-invisible, this is where the
