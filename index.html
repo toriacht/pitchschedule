@@ -540,7 +540,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.8";
+const APP_VERSION = "26.08.17.1";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -600,6 +600,12 @@ const PITCHES = [
   { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f', text: '#0f172a', solid: '#92400e' },
 ];
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+// While a match's full-screen view is open, poll faster than the rest of
+// the app -- 5 minutes is fine for "is the schedule still accurate," too
+// slow for someone actually watching a live score. Only runs while that
+// view is open (see startMatchViewPoll_/stopMatchViewPoll_), not as a
+// second always-on timer.
+const MATCH_VIEW_REFRESH_MS = 20 * 1000; // 20 seconds
 const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGGER_HOURS
 // GA4 measurement ID (adr-0018) -- empty by default, meaning GA4 is fully
 // inert: the consent banner never shows and gtag.js never loads. Not a
@@ -1006,6 +1012,7 @@ async function loadData() {
   justSynced = true;
   render();
   justSynced = false;
+  refreshOpenMatchView_();
 }
 
 function currentFilter() {
@@ -1398,9 +1405,17 @@ function matchScoreCardUrl_(matchId) {
   return new URL('scores/' + encodeURIComponent(matchId) + '.png', location.href).toString();
 }
 
-async function submitScore_(matchId, scoreFor, scoreAgainst) {
+// Sends what THIS tally session changed, not the absolute score it landed
+// on (2026-08-16 amendment) -- Code.gs applies the delta under a lock to
+// whatever's actually in the sheet right now, so two people editing around
+// the same time both land correctly instead of whoever submits second
+// silently overwriting the first. Response is "ok:<scoreFor>:<scoreAgainst>"
+// (the resulting absolute score, which may reflect someone else's change
+// too, not just this one) or "error: <reason>".
+async function submitScore_(matchId, deltaForGoals, deltaForPoints, deltaAgainstGoals, deltaAgainstPoints) {
   const params = new URLSearchParams({
-    action: 'submitScore', match: matchId, scoreFor, scoreAgainst,
+    action: 'submitScore', match: matchId,
+    deltaForGoals, deltaForPoints, deltaAgainstGoals, deltaAgainstPoints,
     device: usagePingDeviceId_(), cachebust: Date.now()
   });
   const res = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + params.toString());
@@ -1423,10 +1438,23 @@ let matchViewReturnTab_ = 'home';
 // after an explicit "Add/Edit score" tap, reset false every time a match
 // is opened -- a casual link visitor lands on a display, not a form.
 let editingScore_ = false;
+// True only while the open tally form has taps not yet submitted -- lets
+// refreshOpenMatchView_ tell "sitting in edit mode with nothing pending"
+// (safe to silently refresh with someone else's update) apart from
+// "mid-tally right now" (must not clobber that).
+let scoreFormDirty_ = false;
+// The row currently shown in the full-screen match view, or null when
+// it's closed -- kept up to date (not just the id) so everything reading
+// it (renderQuickScore_, the share button) always has the freshest known
+// data, not whatever was true the instant it was tapped open.
+let openMatchRow_ = null;
+let matchViewPollTimer_ = null;
 
 function openMatchView_(r) {
   matchViewReturnTab_ = currentTab_;
   editingScore_ = false;
+  scoreFormDirty_ = false;
+  openMatchRow_ = r;
   const crestCol = (name, path) => `
     <div class="match-view-crest-col">
       ${path ? `<img class="match-view-crest-img" src="${path}" alt="">` : `<div class="match-view-crest-fallback">${initialsFor(name)}</div>`}
@@ -1449,14 +1477,42 @@ function openMatchView_(r) {
     <div id="quickScoreArea"></div>
     ${r.Details ? `<p class="detail-sentence">${r.Details}</p>` : ''}`;
 
-  document.getElementById('matchShareBtn').onclick = () => shareMatch_(r);
+  document.getElementById('matchShareBtn').onclick = () => shareMatch_(openMatchRow_);
   renderQuickScore_(r);
   matchView.hidden = false;
+  startMatchViewPoll_();
 }
 document.getElementById('matchViewBack').addEventListener('click', () => {
   matchView.hidden = true;
+  openMatchRow_ = null;
+  stopMatchViewPoll_();
   switchTab_(matchViewReturnTab_);
 });
+
+function startMatchViewPoll_() {
+  stopMatchViewPoll_();
+  matchViewPollTimer_ = setInterval(loadData, MATCH_VIEW_REFRESH_MS);
+}
+function stopMatchViewPoll_() {
+  if (matchViewPollTimer_) { clearInterval(matchViewPollTimer_); matchViewPollTimer_ = null; }
+}
+
+// Called at the end of every loadData() (the regular 5-min poll and, while
+// a match view is open, the faster one above) -- refreshes the open view
+// with whatever's freshest, unless there are local taps not yet submitted
+// (scoreFormDirty_, not just editingScore_ -- someone who submitted and is
+// still sitting in edit mode with a clean, just-committed baseline should
+// still see the next update land, same as a passive viewer would).
+// Silently clobbering an in-progress, *unsaved* tally out from under
+// someone's fingers would be worse than the staleness this exists to fix.
+function refreshOpenMatchView_() {
+  if (!openMatchRow_ || scoreFormDirty_) return;
+  const fresh = allRows.find(row => row['Match ID'] === openMatchRow_['Match ID']);
+  if (!fresh) return; // the match dropped out of the feed -- leave the stale view rather than blank it
+  openMatchRow_ = fresh;
+  document.getElementById('matchShareBtn').onclick = () => shareMatch_(fresh);
+  renderQuickScore_(fresh);
+}
 
 // The crests-row score is the one score on this page (per the mockup) --
 // "vs" until there's something to show, then the recorded score, then a
@@ -1487,7 +1543,7 @@ function renderQuickScore_(r) {
   // The window can close while someone's mid-edit (rare, but a match does
   // eventually pass midnight) -- fall back to view rather than leave a
   // now-disabled Edit tab showing an open form.
-  if (editingScore_ && !editWindow.open) editingScore_ = false;
+  if (editingScore_ && !editWindow.open) { editingScore_ = false; scoreFormDirty_ = false; }
   const hasScore = r['Score For'] && r['Score Against'];
 
   el.innerHTML = `
@@ -1499,6 +1555,7 @@ function renderQuickScore_(r) {
   document.getElementById('quickScoreViewModeBtn').addEventListener('click', () => {
     if (!editingScore_) return;
     editingScore_ = false;
+    scoreFormDirty_ = false;
     renderQuickScore_(r);
   });
   document.getElementById('quickScoreEditModeBtn').addEventListener('click', (e) => {
@@ -1545,6 +1602,10 @@ function confirmScoreEdit_(onConfirm) {
 // live-updates the shared score at the top; Submit starts disabled and
 // only enables once the tally actually differs from where it started.
 function renderQuickScoreForm_(r) {
+  // Every fresh render (first open, or the poll refreshing an untouched
+  // form -- see refreshOpenMatchView_) starts clean: nothing typed yet
+  // against this baseline.
+  scoreFormDirty_ = false;
   const parseSide = (s) => {
     const m = /^(\d+)-(\d+)$/.exec(s || '');
     return m ? { goals: Number(m[1]), points: Number(m[2]) } : { goals: 0, points: 0 };
@@ -1590,22 +1651,33 @@ function renderQuickScoreForm_(r) {
       const delta = btn.dataset.op === 'inc' ? 1 : -1;
       state[side][stat] = Math.max(0, state[side][stat] + delta);
       setMatchViewScore_(scoreText(), true);
-      saveBtn.disabled = !dirty();
+      scoreFormDirty_ = dirty();
+      saveBtn.disabled = !scoreFormDirty_;
     });
   });
   saveBtn.addEventListener('click', async () => {
-    const scoreFor = `${state.team.goals}-${state.team.points}`;
-    const scoreAgainst = `${state.opp.goals}-${state.opp.points}`;
+    // What THIS session actually changed, not the absolute score --
+    // submitScore_ (Code.gs) applies this on top of whatever's really in
+    // the sheet right now, under a lock, so a concurrent edit from someone
+    // else can't get silently overwritten by this submission (or vice
+    // versa). See index.html's submitScore_ helper and Code.gs for the
+    // full reasoning.
     const errEl = document.getElementById('scoreErrorMsg');
-    // The tally can only ever produce a valid "G-P" string -- SCORE_FORMAT_RE
-    // is still checked server-side (submitScore_ in Code.gs), just not
-    // re-checked here since the UI can't produce anything else.
     // Button reads "Submit", not "Save" -- this publishes the score for
     // everyone, not a private/local save, and should read that way.
     saveBtn.disabled = true; saveBtn.textContent = 'Submitting…';
-    const result = await submitScore_(r['Match ID'], scoreFor, scoreAgainst).catch(() => 'error: network');
-    if (result.startsWith('ok')) {
-      r['Score For'] = scoreFor; r['Score Against'] = scoreAgainst; r['Score Updated'] = new Date().toISOString();
+    const result = await submitScore_(
+      r['Match ID'],
+      state.team.goals - initial.team.goals, state.team.points - initial.team.points,
+      state.opp.goals - initial.opp.goals, state.opp.points - initial.opp.points
+    ).catch(() => 'error: network');
+    const [status, resultFor, resultAgainst] = result.split(':');
+    if (status === 'ok') {
+      // The server's resulting score, not this session's own computed
+      // scoreFor/scoreAgainst -- if someone else's edit landed inside the
+      // same lock just before this one, the true result can differ from
+      // what this tally alone would produce, and that's the value to show.
+      r['Score For'] = resultFor; r['Score Against'] = resultAgainst; r['Score Updated'] = new Date().toISOString();
       errEl.style.display = 'none';
       // Stay in edit mode -- a live scorer taps this repeatedly through a
       // match, and re-confirming the warning dialog every single goal
@@ -1622,7 +1694,8 @@ function renderQuickScoreForm_(r) {
     } else {
       errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not submit the score -- try again.';
       errEl.style.display = '';
-      saveBtn.disabled = !dirty(); saveBtn.textContent = 'Submit';
+      scoreFormDirty_ = dirty();
+      saveBtn.disabled = !scoreFormDirty_; saveBtn.textContent = 'Submit';
     }
   });
 }
