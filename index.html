@@ -540,7 +540,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.1";
+const APP_VERSION = "26.08.17.2";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1715,7 +1715,21 @@ function renderQuickScoreForm_(r) {
 // sensible thing to hand over at that point.
 async function shareMatch_(r) {
   const hasScore = r['Score For'] && r['Score Against'];
-  const url = hasScore ? matchScoreCardUrl_(r['Match ID']) : matchShareUrl_(r['Match ID']);
+  // The score card is only committed once the render-score-card.yml
+  // workflow has actually run for this match -- there's a real gap
+  // between "a score was just submitted" and "the picture exists"
+  // (usually seconds, but the dispatch/render/commit chain is several
+  // hops and any one of them can lag or fail). Never hand out a link
+  // that's known to 404 -- check it's actually there first, and fall back
+  // to the live editable link (which always works) if it isn't.
+  let url = matchShareUrl_(r['Match ID']);
+  if (hasScore) {
+    const cardUrl = matchScoreCardUrl_(r['Match ID']);
+    try {
+      const check = await fetch(cardUrl, { method: 'HEAD' });
+      if (check.ok) url = cardUrl;
+    } catch (err) { /* offline, or the check itself failed -- fall back below */ }
+  }
   const title = r.Opponent ? `${r.Team} v ${r.Opponent}` : r.Team;
   if (navigator.share) {
     try { await navigator.share({ title, url }); return; }
