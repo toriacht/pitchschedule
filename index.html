@@ -316,11 +316,20 @@
   .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
   .quick-score-btn {
     width: 34px; height: 34px; border-radius: 8px; border: none;
-    background: var(--panel2); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    background: var(--accent2); color: #ffffff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
+  /* Outlined, not solid -- deliberately one visual step lighter than
+     Submit's solid fill. Both read as "blue = clickable," but this is the
+     entry into edit mode (a secondary step gated by a confirm prompt),
+     Submit is the one moment that actually publishes a change. */
+  .quick-score-mode-btn {
+    display: block; margin: 0 auto; padding: 8px 20px; border-radius: 999px;
+    border: 1px solid var(--accent2); background: var(--panel); color: var(--accent2);
+    font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  }
   .quick-score-meta { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
   .quick-score-status { text-align: center; color: var(--muted); font-size: 0.88rem; padding: 10px 0; }
 
@@ -513,7 +522,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.6";
+const APP_VERSION = "26.08.16.7";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1362,6 +1371,15 @@ function matchShareUrl_(matchId) {
   return url.toString();
 }
 
+// The regenerated score-card PNG (adr-0020 amendment) -- committed by
+// render-score-card.yml into scores/<matchId>.png alongside the rest of
+// this deployed site, so it's resolved relative to the current page
+// rather than a hardcoded domain (works the same whether this is served
+// from the real Pages URL or a local/scratch copy during testing).
+function matchScoreCardUrl_(matchId) {
+  return new URL('scores/' + encodeURIComponent(matchId) + '.png', location.href).toString();
+}
+
 async function submitScore_(matchId, scoreFor, scoreAgainst) {
   const params = new URLSearchParams({
     action: 'submitScore', match: matchId, scoreFor, scoreAgainst,
@@ -1456,9 +1474,9 @@ function renderQuickScore_(r) {
     el.innerHTML = `
       <div class="quick-score">
         ${updated ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
-        ${editWindow.open ? `<button type="button" class="view-all-link" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`}
+        ${editWindow.open ? `<button type="button" class="quick-score-mode-btn" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`}
       </div>`;
-    if (editWindow.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => { editingScore_ = true; renderQuickScoreForm_(r); });
+    if (editWindow.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => enterScoreEditMode_(r));
     return;
   }
 
@@ -1466,8 +1484,20 @@ function renderQuickScore_(r) {
     el.innerHTML = `<div class="quick-score"><div class="quick-score-status">Score entry ${editWindow.reason}.</div></div>`;
     return;
   }
-  el.innerHTML = `<div class="quick-score"><button type="button" class="view-all-link" id="quickScoreAddBtn">Add score</button></div>`;
-  document.getElementById('quickScoreAddBtn').addEventListener('click', () => { editingScore_ = true; renderQuickScoreForm_(r); });
+  el.innerHTML = `<div class="quick-score"><button type="button" class="quick-score-mode-btn" id="quickScoreAddBtn">Add score</button></div>`;
+  document.getElementById('quickScoreAddBtn').addEventListener('click', () => enterScoreEditMode_(r));
+}
+
+// One gated entry point into edit mode, whether there's a score already or
+// not -- both buttons above route through this, not straight into
+// renderQuickScoreForm_. This is the one moment someone commits to
+// changing what everyone else with the app open sees, so it gets an
+// explicit heads-up rather than sliding straight from "viewing" into
+// "editing" on a single tap.
+function enterScoreEditMode_(r) {
+  if (!window.confirm('This updates the score live for everyone using the app. Continue?')) return;
+  editingScore_ = true;
+  renderQuickScoreForm_(r);
 }
 
 // +/- tally, not incremental live scoring (adr-0020) -- two independent
@@ -1555,8 +1585,16 @@ function renderQuickScoreForm_(r) {
 // pointing a camera at someone else's screen; most shares here start from
 // a tap on a link already sitting in a chat, so a share/copy button covers
 // the real path and a QR code was one more thing on the page for no gain.
+//
+// Shares the regenerated score-card PNG once a score exists, the live
+// editable link before that -- a picture has no edit surface, so this is
+// what actually makes a score genuinely uneditable once it leaves the
+// app, not just read-only-by-default within it. Nothing to picture yet
+// before a score's been recorded, so the live link is still the only
+// sensible thing to hand over at that point.
 async function shareMatch_(r) {
-  const url = matchShareUrl_(r['Match ID']);
+  const hasScore = r['Score For'] && r['Score Against'];
+  const url = hasScore ? matchScoreCardUrl_(r['Match ID']) : matchShareUrl_(r['Match ID']);
   const title = r.Opponent ? `${r.Team} v ${r.Opponent}` : r.Team;
   if (navigator.share) {
     try { await navigator.share({ title, url }); return; }
