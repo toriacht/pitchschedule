@@ -315,8 +315,8 @@
   .quick-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
   .quick-score-btn {
-    width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--accent2);
-    background: var(--panel); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 8px; border: none;
+    background: var(--panel2); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
@@ -513,7 +513,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.5";
+const APP_VERSION = "26.08.16.6";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
