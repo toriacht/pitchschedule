@@ -316,20 +316,29 @@
   .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
   .quick-score-btn {
     width: 34px; height: 34px; border-radius: 8px; border: none;
-    background: var(--accent2); color: #ffffff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    background: var(--panel2); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
-  /* Outlined, not solid -- deliberately one visual step lighter than
-     Submit's solid fill. Both read as "blue = clickable," but this is the
-     entry into edit mode (a secondary step gated by a confirm prompt),
-     Submit is the one moment that actually publishes a change. */
+  /* Persistent View/Edit toggle, always both present (adr-0020 amendment)
+     -- reuses .toggle-btn's existing active/inactive pill language rather
+     than a one-off style. Edit renders :disabled (below) when the edit
+     window's closed, so "not available right now" is shown, not just a
+     missing button. */
+  .quick-score-mode-toggle { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Outlined, not solid -- used for Cancel in the edit-warning dialog,
+     deliberately one visual step lighter than the dialog's own solid
+     Continue button (reusing .quick-score-save's fill). */
   .quick-score-mode-btn {
     display: block; margin: 0 auto; padding: 8px 20px; border-radius: 999px;
     border: 1px solid var(--accent2); background: var(--panel); color: var(--accent2);
     font-weight: 700; font-size: 0.85rem; cursor: pointer;
   }
+  .score-edit-warning-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .score-edit-warning-actions .quick-score-mode-btn,
+  .score-edit-warning-actions .quick-score-save { flex: 1; margin: 0; }
   .quick-score-meta { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
   .quick-score-status { text-align: center; color: var(--muted); font-size: 0.88rem; padding: 10px 0; }
 
@@ -495,6 +504,15 @@
   <div class="sync-rows" id="syncRows"></div>
 </dialog>
 
+<dialog id="scoreEditWarning" class="booking-detail">
+  <div class="detail-team">Editing this score</div>
+  <p class="detail-sentence">This updates the score live for everyone using the app right now.</p>
+  <div class="score-edit-warning-actions">
+    <button type="button" class="quick-score-mode-btn" id="scoreEditWarningCancel">Cancel</button>
+    <button type="button" class="quick-score-save" id="scoreEditWarningContinue">Continue</button>
+  </div>
+</dialog>
+
 <!-- GA4 notice banner (adr-0018, amended) -- hidden by default; JS only
      shows it when GA_MEASUREMENT_ID is configured and it hasn't been
      dismissed yet. Acknowledgment-only by deliberate choice -- see the
@@ -522,7 +540,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.7";
+const APP_VERSION = "26.08.16.8";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1453,9 +1471,11 @@ function setMatchViewScore_(text, live) {
   el.classList.toggle('match-view-score-live', !!live);
 }
 
-// Recorded score + "Edit score", an "Add score" prompt, the tally form
-// (only once explicitly opened), or a status line -- read-only by default
-// (adr-0020 amendment), same four underlying states adr-0019 established.
+// A persistent View/Edit toggle (adr-0020 amendment) -- always both
+// visible, rather than the edit affordance disappearing once tapped, so
+// switching back doesn't require finishing or abandoning anything. Edit is
+// rendered disabled/faded when the edit window's closed, so "you can't
+// right now" is shown rather than the option just vanishing.
 function renderQuickScore_(r) {
   const el = document.getElementById('quickScoreArea');
   const matchId = r['Match ID'];
@@ -1464,40 +1484,58 @@ function renderQuickScore_(r) {
   const editWindow = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
   // TEMPORARY (2026-08-16) -- see SCORE_WINDOW_PREVIEW_OVERRIDE in CONFIG.
   if (SCORE_WINDOW_PREVIEW_OVERRIDE) editWindow.open = true;
+  // The window can close while someone's mid-edit (rare, but a match does
+  // eventually pass midnight) -- fall back to view rather than leave a
+  // now-disabled Edit tab showing an open form.
+  if (editingScore_ && !editWindow.open) editingScore_ = false;
   const hasScore = r['Score For'] && r['Score Against'];
 
-  if (editingScore_) { renderQuickScoreForm_(r); return; }
-  setMatchViewScore_(hasScore ? `${r['Score For']} – ${r['Score Against']}` : 'vs');
+  el.innerHTML = `
+    <div class="quick-score-mode-toggle" role="group">
+      <button type="button" class="toggle-btn${editingScore_ ? '' : ' active'}" id="quickScoreViewModeBtn">View</button>
+      <button type="button" class="toggle-btn${editingScore_ ? ' active' : ''}" id="quickScoreEditModeBtn" ${editWindow.open ? '' : 'disabled'}>Edit</button>
+    </div>
+    <div id="quickScoreBody"></div>`;
+  document.getElementById('quickScoreViewModeBtn').addEventListener('click', () => {
+    if (!editingScore_) return;
+    editingScore_ = false;
+    renderQuickScore_(r);
+  });
+  document.getElementById('quickScoreEditModeBtn').addEventListener('click', (e) => {
+    if (editingScore_ || e.currentTarget.disabled) return;
+    confirmScoreEdit_(() => { editingScore_ = true; renderQuickScore_(r); });
+  });
 
+  if (editingScore_) { renderQuickScoreForm_(r); return; }
+
+  setMatchViewScore_(hasScore ? `${r['Score For']} – ${r['Score Against']}` : 'vs');
+  const body = document.getElementById('quickScoreBody');
   if (hasScore) {
     const updated = r['Score Updated'] ? new Date(r['Score Updated']) : null;
-    el.innerHTML = `
-      <div class="quick-score">
-        ${updated ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
-        ${editWindow.open ? `<button type="button" class="quick-score-mode-btn" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`}
-      </div>`;
-    if (editWindow.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => enterScoreEditMode_(r));
-    return;
+    body.innerHTML = updated
+      ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>`
+      : '';
+  } else if (!editWindow.open) {
+    body.innerHTML = `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`;
+  } else {
+    body.innerHTML = '';
   }
-
-  if (!editWindow.open) {
-    el.innerHTML = `<div class="quick-score"><div class="quick-score-status">Score entry ${editWindow.reason}.</div></div>`;
-    return;
-  }
-  el.innerHTML = `<div class="quick-score"><button type="button" class="quick-score-mode-btn" id="quickScoreAddBtn">Add score</button></div>`;
-  document.getElementById('quickScoreAddBtn').addEventListener('click', () => enterScoreEditMode_(r));
 }
 
-// One gated entry point into edit mode, whether there's a score already or
-// not -- both buttons above route through this, not straight into
-// renderQuickScoreForm_. This is the one moment someone commits to
-// changing what everyone else with the app open sees, so it gets an
-// explicit heads-up rather than sliding straight from "viewing" into
-// "editing" on a single tap.
-function enterScoreEditMode_(r) {
-  if (!window.confirm('This updates the score live for everyone using the app. Continue?')) return;
-  editingScore_ = true;
-  renderQuickScoreForm_(r);
+// Custom-styled dialog, not window.confirm() -- a native confirm() looks
+// like a generic OS prompt, jarring next to the rest of this app's own
+// styled <dialog> (bookingDetail etc). This is the one moment someone
+// commits to changing what everyone else with the app open currently
+// sees, so it still gets an explicit heads-up, just one that looks like it
+// belongs on this page.
+const scoreEditWarning = document.getElementById('scoreEditWarning');
+function confirmScoreEdit_(onConfirm) {
+  scoreEditWarning.showModal();
+  document.getElementById('scoreEditWarningCancel').onclick = () => scoreEditWarning.close();
+  document.getElementById('scoreEditWarningContinue').onclick = () => {
+    scoreEditWarning.close();
+    onConfirm();
+  };
 }
 
 // +/- tally, not incremental live scoring (adr-0020) -- two independent
@@ -1517,7 +1555,7 @@ function renderQuickScoreForm_(r) {
     state.opp.goals !== initial.opp.goals || state.opp.points !== initial.opp.points;
   const scoreText = () => `${state.team.goals}-${state.team.points} – ${state.opp.goals}-${state.opp.points}`;
 
-  const el = document.getElementById('quickScoreArea');
+  const el = document.getElementById('quickScoreBody');
   const sideHtml = (label, key) => `
     <div class="quick-score-side" data-side="${key}">
       <div class="quick-score-side-name">${label}</div>
@@ -1537,7 +1575,7 @@ function renderQuickScoreForm_(r) {
       ${sideHtml(r.Team, 'team')}
       ${sideHtml(r.Opponent || 'Opponent', 'opp')}
       <button type="button" class="quick-score-save" id="quickScoreSaveBtn" disabled>Submit</button>
-      <div class="score-status">Anyone can add this score, Wikipedia-style.</div>
+      <div class="score-status" id="quickScoreStatusLine">Anyone can add this score, Wikipedia-style.</div>
     </div>
     <div class="score-error" id="scoreErrorMsg" style="display:none;"></div>`;
 
@@ -1569,8 +1607,18 @@ function renderQuickScoreForm_(r) {
     if (result.startsWith('ok')) {
       r['Score For'] = scoreFor; r['Score Against'] = scoreAgainst; r['Score Updated'] = new Date().toISOString();
       errEl.style.display = 'none';
-      editingScore_ = false;
-      renderQuickScore_(r);
+      // Stay in edit mode -- a live scorer taps this repeatedly through a
+      // match, and re-confirming the warning dialog every single goal
+      // would be exhausting. Re-rendering the form fresh makes the
+      // just-submitted score its new baseline, so Submit correctly goes
+      // back to disabled until the next real change.
+      renderQuickScoreForm_(r);
+      const statusLine = document.getElementById('quickScoreStatusLine');
+      if (statusLine) {
+        const original = statusLine.textContent;
+        statusLine.textContent = 'Saved';
+        setTimeout(() => { if (statusLine.isConnected) statusLine.textContent = original; }, 1800);
+      }
     } else {
       errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not submit the score -- try again.';
       errEl.style.display = '';
