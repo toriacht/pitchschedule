@@ -245,7 +245,10 @@
     font-size: 0.68rem; font-weight: 600; cursor: pointer;
   }
   .nav-btn.active { color: var(--accent2); }
-  .nav-icon { font-size: 1.15rem; line-height: 1; }
+  /* stroke="currentColor" in the SVGs means these automatically pick up
+     .nav-btn's text color (--muted inactive, --accent2 active) -- no
+     separate icon color to keep in sync with the rest of the palette. */
+  .nav-icon { display: block; }
   .tab-page[hidden] { display: none; }
   .section-heading-row { display: flex; align-items: center; justify-content: space-between; margin: 20px 2px 8px; }
   .section-heading { font-size: 0.95rem; font-weight: 700; margin: 0; }
@@ -396,9 +399,9 @@
 <!-- ---------- Tab: Matches (new, adr-0020) ---------- -->
 <section id="tabMatches" class="tab-page" hidden>
   <div class="controls-row">
+    <button type="button" class="toggle-btn" data-range="lastWeek">Last Week</button>
     <button type="button" class="toggle-btn active" data-range="week">This Week</button>
     <button type="button" class="toggle-btn" data-range="nextWeek">Next Week</button>
-    <button type="button" class="toggle-btn" data-range="all">All</button>
   </div>
   <div id="matchesTabPanel"><div class="empty-msg">Loading matches…</div></div>
 </section>
@@ -441,10 +444,22 @@
 
 <!-- ---------- Bottom navigation (adr-0020) ---------- -->
 <nav class="bottom-nav" id="bottomNav">
-  <button type="button" class="nav-btn active" data-tab="home"><span class="nav-icon">⌂</span><span>Home</span></button>
-  <button type="button" class="nav-btn" data-tab="schedule"><span class="nav-icon">📅</span><span>Schedule</span></button>
-  <button type="button" class="nav-btn" data-tab="matches"><span class="nav-icon">🏆</span><span>Matches</span></button>
-  <button type="button" class="nav-btn" data-tab="more"><span class="nav-icon">☰</span><span>More</span></button>
+  <button type="button" class="nav-btn active" data-tab="home">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+    <span>Home</span>
+  </button>
+  <button type="button" class="nav-btn" data-tab="schedule">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+    <span>Schedule</span>
+  </button>
+  <button type="button" class="nav-btn" data-tab="matches">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v4a6 6 0 0 1-12 0V4z"/><path d="M6 5H3.5A2.5 2.5 0 0 0 6 9.5"/><path d="M18 5h2.5A2.5 2.5 0 0 1 18 9.5"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+    <span>Matches</span>
+  </button>
+  <button type="button" class="nav-btn" data-tab="more">
+    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    <span>More</span>
+  </button>
 </nav>
 
 <dialog id="bookingDetail" class="booking-detail">
@@ -490,7 +505,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.1";
+const APP_VERSION = "26.08.16.2";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -556,6 +571,12 @@ const TRIGGER_HOURS = [0, 9, 11, 13, 15, 17]; // must match Code.gs CONFIG.TRIGG
 // secret (Google's own docs treat measurement IDs as fine to embed in
 // public page source), so it's a plain constant, not a __PLACEHOLDER__.
 const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
+// TEMPORARY (2026-08-16), requested directly for previewing the score UI:
+// bypasses adr-0019's 3h-before-kickoff-to-midnight edit window entirely,
+// on both this side and the server side (Code.gs's matching
+// SCORE_WINDOW_PREVIEW_OVERRIDE -- both must agree, or the UI shows a form
+// the server then rejects). Set both back to false once you've seen it.
+const SCORE_WINDOW_PREVIEW_OVERRIDE = true;
 // =================================
 
 // ---------- Club crests (adr-0020) ----------
@@ -616,12 +637,16 @@ const CREST_FILE = {
 };
 // Fixture-email spellings that don't normalize straight onto a canonical
 // key above -- e.g. "Kinnegad" alone for the amalgamated Coralstown-
-// Kinnegad club. Not a guess: each of these is an unambiguous shorthand
-// for one specific club above, unlike the deliberately-omitted "Mullingar".
+// Kinnegad club. Each of these is an unambiguous shorthand for one
+// specific club above -- except "mullingar" itself, which really is
+// ambiguous between two real clubs and was left unmapped for that reason
+// until confirmed directly: bare "Mullingar" in this data means Mullingar
+// Shamrocks specifically, not St Loman's.
 const CREST_ALIAS = {
   'kinnegad': 'coralstown kinnegad',
   'moate': 'moate all whites',
   'moates': 'moate all whites',
+  'mullingar': 'mullingar shamrocks',
   'st lomans': 'st lomans mullingar',
   'coole whitehall': 'castletown finea coole whitehall',
 };
@@ -1200,14 +1225,16 @@ function startOfWeek_(d) {
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
 }
+// "Last Week" deliberately breaks the no-lookback rule the rest of the
+// schedule follows (adr-0006) -- recent scores are exactly what people
+// want to check back on, so restricting it to "today onward" like the
+// Schedule tab would defeat the point of having it.
 function matchesForRange_(range, now) {
   const rows = allRows.filter(r => r.Type === 'Match');
-  if (range === 'all') {
-    return rows.sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
-  }
   const monday = startOfWeek_(now);
   let start, end;
-  if (range === 'week') { start = atMidnight(now); end = new Date(monday.getTime() + 6 * 86400000); }
+  if (range === 'lastWeek') { start = new Date(monday.getTime() - 7 * 86400000); end = new Date(monday.getTime() - 1 * 86400000); }
+  else if (range === 'week') { start = atMidnight(now); end = new Date(monday.getTime() + 6 * 86400000); }
   else { start = new Date(monday.getTime() + 7 * 86400000); end = new Date(monday.getTime() + 13 * 86400000); }
   return rows.filter(r => { const rd = atMidnight(r.dateObj); return rd >= start && rd <= end; })
     .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
@@ -1220,7 +1247,7 @@ function renderMatchesTab_() {
   matchesTabRows_ = rows;
   const panel = document.getElementById('matchesTabPanel');
   if (!rows.length) {
-    const noun = matchesRange_ === 'all' ? '' : (matchesRange_ === 'week' ? ' this week' : ' next week');
+    const noun = matchesRange_ === 'lastWeek' ? ' last week' : (matchesRange_ === 'week' ? ' this week' : ' next week');
     panel.innerHTML = `<div class="empty-msg">No matches${noun}.</div>`;
     return;
   }
@@ -1369,7 +1396,9 @@ function renderQuickScore_(r) {
   const matchId = r['Match ID'];
   if (r.Type !== 'Match' || !matchId) { el.innerHTML = ''; return; }
 
-  const window = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
+  const editWindow = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
+  // TEMPORARY (2026-08-16) -- see SCORE_WINDOW_PREVIEW_OVERRIDE in CONFIG.
+  if (SCORE_WINDOW_PREVIEW_OVERRIDE) editWindow.open = true;
   const hasScore = r['Score For'] && r['Score Against'];
 
   if (hasScore) {
@@ -1378,14 +1407,14 @@ function renderQuickScore_(r) {
       <div class="quick-score">
         <div class="quick-score-final">${r.Team} ${r['Score For']} – ${r['Score Against']} ${r.Opponent || ''}</div>
         ${updated ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
-        ${window.open ? `<button type="button" class="view-all-link" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${window.reason}.</div>`}
+        ${editWindow.open ? `<button type="button" class="view-all-link" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`}
       </div>`;
-    if (window.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => renderQuickScoreForm_(r), { once: true });
+    if (editWindow.open) document.getElementById('quickScoreEditBtn').addEventListener('click', () => renderQuickScoreForm_(r), { once: true });
     return;
   }
 
-  if (!window.open) {
-    el.innerHTML = `<div class="quick-score"><div class="quick-score-status">Score entry ${window.reason}.</div></div>`;
+  if (!editWindow.open) {
+    el.innerHTML = `<div class="quick-score"><div class="quick-score-status">Score entry ${editWindow.reason}.</div></div>`;
     return;
   }
   el.innerHTML = '';
