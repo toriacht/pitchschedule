@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pitch Schedule</title>
+<title>Athlone GAA</title>
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e6fb8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Pitch Schedule">
+<meta name="apple-mobile-web-app-title" content="Athlone GAA">
 <style>
   :root {
     --bg: #f7fafc; --panel: #ffffff; --panel2: #eaf3fb; --text: #0f172a;
@@ -262,6 +262,8 @@
     padding: 2px 7px; border-radius: 999px; margin-right: 6px;
   }
   .match-card-score { font-weight: 700; font-size: 0.85rem; color: var(--text); margin-top: 2px; }
+  .match-competition { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent2); margin-bottom: 3px; }
+  .match-view-competition { text-align: center; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent2); margin-bottom: 10px; }
   .matches-day-group .booking-card { cursor: pointer; }
 
   /* ---------- Full-screen match view (adr-0020) ---------- */
@@ -338,7 +340,7 @@
     <img src="crest.png" alt="Club crest" class="header-crest">
     <div class="brand-text">
       <p class="club-name">ATHLONE GAA</p>
-      <h1>Pitch Schedule</h1>
+      <h1 id="pageTitle">Pitch Schedule</h1>
     </div>
   </div>
   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
@@ -505,7 +507,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.2";
+const APP_VERSION = "26.08.16.3";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -689,6 +691,12 @@ function crestFor(rawName) {
 }
 function initialsFor(name) {
   return String(name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+}
+// "championship division 1" -> "Championship Division 1" for display --
+// the raw Competition field (Code.gs) is lowercase as written in the
+// source email.
+function titleCase_(s) {
+  return String(s || '').replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
 }
 
 let allRows = [];
@@ -1162,12 +1170,18 @@ function render() {
 // of which is visible -- data volume here is small, and it avoids a whole
 // class of "switched tabs and it's stale" bugs that lazy-rendering would
 // risk for no real performance cost at this scale.
+// The club identity ("ATHLONE GAA") is the permanent small label above
+// this; the H1 itself is a per-tab page title, not a fixed app name --
+// "Pitch Schedule" only describes Home's content (NOW/NEXT), not the
+// Matches or More tabs, so it shouldn't sit there unconditionally.
+const TAB_TITLES = { home: 'Pitch Schedule', schedule: 'Schedule', matches: 'Matches', more: 'More' };
 function switchTab_(name) {
   currentTab_ = name;
   ['home', 'schedule', 'matches', 'more'].forEach(t => {
     document.getElementById('tab' + t[0].toUpperCase() + t.slice(1)).hidden = t !== name;
   });
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
+  document.getElementById('pageTitle').textContent = TAB_TITLES[name] || 'Pitch Schedule';
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1190,6 +1204,7 @@ function matchCardHtml_(r, idx, now) {
   const live = isMatchLive_(r, now);
   const scoreText = (r['Score For'] && r['Score Against']) ? `${r['Score For']} – ${r['Score Against']}` : '';
   return `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
+    ${r.Competition ? `<div class="match-competition">${titleCase_(r.Competition)}</div>` : ''}
     <div class="booking-top">
       <div class="booking-left">${live ? '<span class="match-live-badge">Live</span>' : ''}<span class="booking-time">${displayTime(r)}</span></div>
     </div>
@@ -1225,16 +1240,19 @@ function startOfWeek_(d) {
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
 }
-// "Last Week" deliberately breaks the no-lookback rule the rest of the
-// schedule follows (adr-0006) -- recent scores are exactly what people
-// want to check back on, so restricting it to "today onward" like the
-// Schedule tab would defeat the point of having it.
+// "Last Week" and "This Week" both deliberately break the no-lookback rule
+// the rest of the schedule follows (adr-0006) -- recent scores are exactly
+// what people want to check back on, so restricting either to "today
+// onward" like the Schedule tab would defeat the point of having them.
+// "This Week" therefore always spans the full Monday-Sunday, not just
+// today forward, so an already-played match from earlier this week still
+// shows (with its score, if one's been entered).
 function matchesForRange_(range, now) {
   const rows = allRows.filter(r => r.Type === 'Match');
   const monday = startOfWeek_(now);
   let start, end;
   if (range === 'lastWeek') { start = new Date(monday.getTime() - 7 * 86400000); end = new Date(monday.getTime() - 1 * 86400000); }
-  else if (range === 'week') { start = atMidnight(now); end = new Date(monday.getTime() + 6 * 86400000); }
+  else if (range === 'week') { start = monday; end = new Date(monday.getTime() + 6 * 86400000); }
   else { start = new Date(monday.getTime() + 7 * 86400000); end = new Date(monday.getTime() + 13 * 86400000); }
   return rows.filter(r => { const rd = atMidnight(r.dateObj); return rd >= start && rd <= end; })
     .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
@@ -1368,6 +1386,7 @@ function openMatchView_(r) {
 
   document.getElementById('matchViewBody').innerHTML = `
     <div class="match-view-header">
+      ${r.Competition ? `<div class="match-view-competition">${titleCase_(r.Competition)}</div>` : ''}
       <div class="match-view-crests">
         ${crestCol(r.Team, crestFor(r.Team))}
         <span class="match-view-vs">vs</span>
@@ -1405,7 +1424,7 @@ function renderQuickScore_(r) {
     const updated = r['Score Updated'] ? new Date(r['Score Updated']) : null;
     el.innerHTML = `
       <div class="quick-score">
-        <div class="quick-score-final">${r.Team} ${r['Score For']} – ${r['Score Against']} ${r.Opponent || ''}</div>
+        <div class="quick-score-final">${r['Score For']} – ${r['Score Against']}</div>
         ${updated ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
         ${editWindow.open ? `<button type="button" class="view-all-link" id="quickScoreEditBtn">Edit score</button>` : `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`}
       </div>`;
@@ -1454,7 +1473,7 @@ function renderQuickScoreForm_(r) {
     <div class="quick-score" id="quickScoreForm">
       ${sideHtml(r.Team, 'team')}
       ${sideHtml(r.Opponent || 'Opponent', 'opp')}
-      <button type="button" class="quick-score-save" id="quickScoreSaveBtn">Save score</button>
+      <button type="button" class="quick-score-save" id="quickScoreSaveBtn">Submit</button>
     </div>
     <div class="score-error" id="scoreErrorMsg" style="display:none;"></div>`;
 
@@ -1482,16 +1501,18 @@ function renderQuickScoreForm_(r) {
     // The tally can only ever produce a valid "G-P" string -- SCORE_FORMAT_RE
     // is still checked server-side (submitScore_ in Code.gs), just not
     // re-checked here since the UI can't produce anything else.
-    btn.disabled = true; btn.textContent = 'Saving…';
+    // Button reads "Submit", not "Save" -- this publishes the score for
+    // everyone, not a private/local save, and should read that way.
+    btn.disabled = true; btn.textContent = 'Submitting…';
     const result = await submitScore_(r['Match ID'], scoreFor, scoreAgainst).catch(() => 'error: network');
     if (result.startsWith('ok')) {
       r['Score For'] = scoreFor; r['Score Against'] = scoreAgainst; r['Score Updated'] = new Date().toISOString();
       errEl.style.display = 'none';
       renderQuickScore_(r);
     } else {
-      errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not save the score -- try again.';
+      errEl.textContent = result.replace(/^error:\s*/, '') || 'Could not submit the score -- try again.';
       errEl.style.display = '';
-      btn.disabled = false; btn.textContent = 'Save score';
+      btn.disabled = false; btn.textContent = 'Submit';
     }
   });
 }

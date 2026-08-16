@@ -1,6 +1,6 @@
 {
-  "name": "Athlone GAA — Pitch Schedule",
-  "short_name": "Pitch Schedule",
+  "name": "Athlone GAA",
+  "short_name": "Athlone GAA",
   "description": "Live pitch bookings and NOW/NEXT status for Athlone GAA.",
   "id": "/pitchschedule/",
   "start_url": "/pitchschedule/",
