@@ -315,11 +315,10 @@
   .quick-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
   .quick-score-btn {
-    width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--accent2);
-    background: var(--panel); color: var(--accent2); font-size: 1rem; font-weight: 700; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--accent2);
+    background: var(--panel); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
-  .quick-score-count { min-width: 24px; text-align: center; font-weight: 700; font-size: 1rem; }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
   .quick-score-meta { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
@@ -514,7 +513,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.16.4";
+const APP_VERSION = "26.08.16.5";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1495,13 +1494,11 @@ function renderQuickScoreForm_(r) {
       <div class="quick-score-row">
         <span class="quick-score-row-label">Goal (3)</span>
         <button type="button" class="quick-score-btn" data-op="dec" data-stat="goals">−</button>
-        <span class="quick-score-count" data-count="goals">${state[key].goals}</span>
         <button type="button" class="quick-score-btn" data-op="inc" data-stat="goals">+</button>
       </div>
       <div class="quick-score-row">
         <span class="quick-score-row-label">Point (1)</span>
         <button type="button" class="quick-score-btn" data-op="dec" data-stat="points">−</button>
-        <span class="quick-score-count" data-count="points">${state[key].points}</span>
         <button type="button" class="quick-score-btn" data-op="inc" data-stat="points">+</button>
       </div>
     </div>`;
@@ -1518,18 +1515,12 @@ function renderQuickScoreForm_(r) {
 
   const form = document.getElementById('quickScoreForm');
   const saveBtn = document.getElementById('quickScoreSaveBtn');
-  const renderCounts = (key) => {
-    const sideEl = form.querySelector(`[data-side="${key}"]`);
-    sideEl.querySelector('[data-count="goals"]').textContent = state[key].goals;
-    sideEl.querySelector('[data-count="points"]').textContent = state[key].points;
-  };
   form.querySelectorAll('.quick-score-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const side = btn.closest('.quick-score-side').dataset.side;
       const stat = btn.dataset.stat;
       const delta = btn.dataset.op === 'inc' ? 1 : -1;
       state[side][stat] = Math.max(0, state[side][stat] + delta);
-      renderCounts(side);
       setMatchViewScore_(scoreText(), true);
       saveBtn.disabled = !dirty();
     });
