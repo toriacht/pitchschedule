@@ -321,18 +321,18 @@
   }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
-  /* Persistent View/Edit toggle, always both present (adr-0020 amendment)
-     -- reuses .toggle-btn's existing active/inactive pill language rather
-     than a one-off style. Edit renders :disabled (below) when the edit
-     window's closed, so "not available right now" is shown, not just a
-     missing button. */
-  .quick-score-mode-toggle { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-  .toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  /* Outlined, not solid -- used for Cancel in the edit-warning dialog,
-     deliberately one visual step lighter than the dialog's own solid
-     Continue button (reusing .quick-score-save's fill). */
+  /* One button, its label swapping between "Edit score"/"Add score" and
+     "View" rather than a two-way toggle (2026-08-17) -- disabled/faded
+     while viewing if the edit window's closed, so "not available right
+     now" is shown, not just a missing button; always enabled once
+     editing, since going back to view is always allowed. Also reused for
+     Cancel in the edit-warning dialog below. */
+  .quick-score-mode-row { text-align: center; margin-bottom: 12px; }
+  .quick-score-mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Outlined, not solid -- deliberately one visual step lighter than
+     Submit's (and the dialog's Continue) solid fill. */
   .quick-score-mode-btn {
-    display: block; margin: 0 auto; padding: 8px 20px; border-radius: 999px;
+    display: inline-block; padding: 8px 20px; border-radius: 999px;
     border: 1px solid var(--accent2); background: var(--panel); color: var(--accent2);
     font-weight: 700; font-size: 0.85rem; cursor: pointer;
   }
@@ -422,7 +422,6 @@
 <!-- ---------- Tab: Matches (new, adr-0020) ---------- -->
 <section id="tabMatches" class="tab-page" hidden>
   <div class="controls-row">
-    <button type="button" class="toggle-btn" data-range="lastWeek">Last Week</button>
     <button type="button" class="toggle-btn active" data-range="week">This Week</button>
     <button type="button" class="toggle-btn" data-range="nextWeek">Next Week</button>
   </div>
@@ -540,7 +539,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.2";
+const APP_VERSION = "26.08.17.3";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1285,20 +1284,24 @@ function startOfWeek_(d) {
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
 }
-// "Last Week" and "This Week" both deliberately break the no-lookback rule
-// the rest of the schedule follows (adr-0006) -- recent scores are exactly
-// what people want to check back on, so restricting either to "today
-// onward" like the Schedule tab would defeat the point of having them.
-// "This Week" therefore always spans the full Monday-Sunday, not just
-// today forward, so an already-played match from earlier this week still
-// shows (with its score, if one's been entered).
+// "This Week" deliberately breaks the no-lookback rule the rest of the
+// schedule follows (adr-0006) -- recent scores are exactly what people
+// want to check back on, so restricting it to "today onward" like the
+// Schedule tab would defeat the point. It spans the full Monday-Sunday,
+// not just today forward, so an already-played match from earlier this
+// week still shows (with its score, if one's been entered).
+//
+// "Last Week" pill removed 2026-08-17 (TODO.md) -- not a filtering bug,
+// the underlying data genuinely stops existing: Code.gs's full-rebuild
+// (adr-0002) keeps only the newest fixtures email per Gmail thread, so
+// once a new week's email arrives, last week's rows -- and any score
+// recorded against them -- are gone from what doGet() can ever serve.
+// Revisit once there's an actual archive independent of that rebuild.
 function matchesForRange_(range, now) {
   const rows = allRows.filter(r => r.Type === 'Match');
   const monday = startOfWeek_(now);
-  let start, end;
-  if (range === 'lastWeek') { start = new Date(monday.getTime() - 7 * 86400000); end = new Date(monday.getTime() - 1 * 86400000); }
-  else if (range === 'week') { start = monday; end = new Date(monday.getTime() + 6 * 86400000); }
-  else { start = new Date(monday.getTime() + 7 * 86400000); end = new Date(monday.getTime() + 13 * 86400000); }
+  const start = range === 'week' ? monday : new Date(monday.getTime() + 7 * 86400000);
+  const end = range === 'week' ? new Date(monday.getTime() + 6 * 86400000) : new Date(monday.getTime() + 13 * 86400000);
   return rows.filter(r => { const rd = atMidnight(r.dateObj); return rd >= start && rd <= end; })
     .sort((a, b) => (a.dateObj - b.dateObj) || ((a.time?.start ?? Infinity) - (b.time?.start ?? Infinity)));
 }
@@ -1310,7 +1313,7 @@ function renderMatchesTab_() {
   matchesTabRows_ = rows;
   const panel = document.getElementById('matchesTabPanel');
   if (!rows.length) {
-    const noun = matchesRange_ === 'lastWeek' ? ' last week' : (matchesRange_ === 'week' ? ' this week' : ' next week');
+    const noun = matchesRange_ === 'week' ? ' this week' : ' next week';
     panel.innerHTML = `<div class="empty-msg">No matches${noun}.</div>`;
     return;
   }
@@ -1527,11 +1530,12 @@ function setMatchViewScore_(text, live) {
   el.classList.toggle('match-view-score-live', !!live);
 }
 
-// A persistent View/Edit toggle (adr-0020 amendment) -- always both
-// visible, rather than the edit affordance disappearing once tapped, so
-// switching back doesn't require finishing or abandoning anything. Edit is
-// rendered disabled/faded when the edit window's closed, so "you can't
-// right now" is shown rather than the option just vanishing.
+// One button, not a two-way toggle (2026-08-17, after trying the segmented
+// View/Edit pair live) -- it reads "Edit score"/"Add score" while viewing
+// and switches to "View" once editing, rather than showing both options
+// side by side. Disabled/faded while viewing if the edit window's closed,
+// so "you can't right now" is still shown rather than the button vanishing;
+// always enabled once editing, since going back to view is always allowed.
 function renderQuickScore_(r) {
   const el = document.getElementById('quickScoreArea');
   const matchId = r['Match ID'];
@@ -1542,24 +1546,24 @@ function renderQuickScore_(r) {
   if (SCORE_WINDOW_PREVIEW_OVERRIDE) editWindow.open = true;
   // The window can close while someone's mid-edit (rare, but a match does
   // eventually pass midnight) -- fall back to view rather than leave a
-  // now-disabled Edit tab showing an open form.
+  // now-disabled button showing an open form.
   if (editingScore_ && !editWindow.open) { editingScore_ = false; scoreFormDirty_ = false; }
   const hasScore = r['Score For'] && r['Score Against'];
+  const modeLabel = editingScore_ ? 'View' : (hasScore ? 'Edit score' : 'Add score');
 
   el.innerHTML = `
-    <div class="quick-score-mode-toggle" role="group">
-      <button type="button" class="toggle-btn${editingScore_ ? '' : ' active'}" id="quickScoreViewModeBtn">View</button>
-      <button type="button" class="toggle-btn${editingScore_ ? ' active' : ''}" id="quickScoreEditModeBtn" ${editWindow.open ? '' : 'disabled'}>Edit</button>
+    <div class="quick-score-mode-row">
+      <button type="button" class="quick-score-mode-btn" id="quickScoreModeBtn" ${!editingScore_ && !editWindow.open ? 'disabled' : ''}>${modeLabel}</button>
     </div>
     <div id="quickScoreBody"></div>`;
-  document.getElementById('quickScoreViewModeBtn').addEventListener('click', () => {
-    if (!editingScore_) return;
-    editingScore_ = false;
-    scoreFormDirty_ = false;
-    renderQuickScore_(r);
-  });
-  document.getElementById('quickScoreEditModeBtn').addEventListener('click', (e) => {
-    if (editingScore_ || e.currentTarget.disabled) return;
+  document.getElementById('quickScoreModeBtn').addEventListener('click', (e) => {
+    if (editingScore_) {
+      editingScore_ = false;
+      scoreFormDirty_ = false;
+      renderQuickScore_(r);
+      return;
+    }
+    if (e.currentTarget.disabled) return;
     confirmScoreEdit_(() => { editingScore_ = true; renderQuickScore_(r); });
   });
 
