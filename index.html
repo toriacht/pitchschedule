@@ -365,7 +365,7 @@
     <img src="crest.png" alt="Club crest" class="header-crest">
     <div class="brand-text">
       <p class="club-name">ATHLONE GAA</p>
-      <h1 id="pageTitle">Pitch Schedule</h1>
+      <h1 id="pageTitle">Now/Next</h1>
     </div>
   </div>
   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
@@ -551,7 +551,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.7";
+const APP_VERSION = "26.08.17.8";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1221,16 +1221,16 @@ function render() {
 // risk for no real performance cost at this scale.
 // The club identity ("ATHLONE GAA") is the permanent small label above
 // this; the H1 itself is a per-tab page title, not a fixed app name --
-// "Pitch Schedule" only describes Home's content (NOW/NEXT), not the
-// Matches or More tabs, so it shouldn't sit there unconditionally.
-const TAB_TITLES = { home: 'Pitch Schedule', schedule: 'Schedule', matches: 'Matches', more: 'More' };
+// "Now/Next" only describes Home's content, not the Matches or More
+// tabs, so it shouldn't sit there unconditionally.
+const TAB_TITLES = { home: 'Now/Next', schedule: 'Schedule', matches: 'Matches', more: 'More' };
 function switchTab_(name) {
   currentTab_ = name;
   ['home', 'schedule', 'matches', 'more'].forEach(t => {
     document.getElementById('tab' + t[0].toUpperCase() + t.slice(1)).hidden = t !== name;
   });
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
-  document.getElementById('pageTitle').textContent = TAB_TITLES[name] || 'Pitch Schedule';
+  document.getElementById('pageTitle').textContent = TAB_TITLES[name] || 'Now/Next';
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1349,7 +1349,7 @@ document.querySelectorAll('#tabMatches [data-range]').forEach(btn => {
   });
 });
 
-document.getElementById('moreVersion').textContent = 'Pitch Schedule ' + APP_VERSION_FULL;
+document.getElementById('moreVersion').textContent = 'Athlone GAA ' + APP_VERSION_FULL;
 
 const searchInput = document.getElementById('search');
 const searchClear = document.getElementById('searchClear');
