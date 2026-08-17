@@ -551,7 +551,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.8";
+const APP_VERSION = "26.08.17.9";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1237,6 +1237,43 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab_(btn.dataset.tab));
 });
 document.getElementById('viewAllMatchesBtn').addEventListener('click', () => switchTab_('matches'));
+
+// ---------- Swipe between tabs (2026-08-17) ----------
+// A left/right swipe anywhere on the page moves to the next/previous tab,
+// same order as the bottom nav reads left to right. Passive listeners
+// only (never preventDefault) -- this only ever *reads* the touch path,
+// so normal vertical scrolling stays completely native/unaffected. A
+// swipe that moves more vertically than TAB_SWIPE_MAX_VERTICAL is treated
+// as a scroll, not a navigation gesture, and ignored.
+(function initTabSwipe_() {
+  const TABS = ['home', 'schedule', 'matches', 'more'];
+  const MIN_DX = 60, MAX_DY = 50;
+  let startX = 0, startY = 0, tracking = false;
+
+  document.querySelector('.page-wrap').addEventListener('touchstart', (e) => {
+    // No tab-swiping while the full-screen match view or any dialog is
+    // open -- those have their own gestures/controls, and swiping
+    // "through" them to a different tab underneath would be surprising.
+    if (!matchView.hidden || document.querySelector('dialog[open]') || e.touches.length !== 1) {
+      tracking = false;
+      return;
+    }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+  }, { passive: true });
+
+  document.querySelector('.page-wrap').addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dy) > MAX_DY || Math.abs(dx) < MIN_DX) return;
+    const idx = TABS.indexOf(currentTab_);
+    if (dx < 0 && idx < TABS.length - 1) switchTab_(TABS[idx + 1]); // swipe left -> next tab
+    else if (dx > 0 && idx > 0) switchTab_(TABS[idx - 1]); // swipe right -> previous tab
+  }, { passive: true });
+})();
 
 // ---------- Today's Matches (Home) + Matches tab (adr-0020) ----------
 // Shared card markup -- reuses .booking-card's existing visual language
