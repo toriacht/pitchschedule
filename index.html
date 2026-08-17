@@ -322,13 +322,17 @@
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
   /* One button, its label swapping between "Edit score"/"Add score" and
-     "View" rather than a two-way toggle (2026-08-17) -- disabled/faded
-     while viewing if the edit window's closed, so "not available right
-     now" is shown, not just a missing button; always enabled once
-     editing, since going back to view is always allowed. Also reused for
-     Cancel in the edit-warning dialog below. */
+     "View" rather than a two-way toggle (2026-08-17) -- faded while
+     viewing if the edit window's closed, so "not available right now" is
+     shown, not just a missing button; always enabled once editing, since
+     going back to view is always allowed. Also reused for Cancel in the
+     edit-warning dialog below.
+     Deliberately NOT a real :disabled button even when the window's
+     closed -- a disabled element never fires a click at all, so tapping
+     it did nothing with no explanation. Stays tappable, just faded, and
+     tapping it opens scoreWindowClosedInfo explaining why. */
   .quick-score-mode-row { text-align: center; margin-bottom: 12px; }
-  .quick-score-mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quick-score-mode-btn-unavailable { opacity: 0.5; }
   /* Outlined, not solid -- deliberately one visual step lighter than
      Submit's (and the dialog's Continue) solid fill. */
   .quick-score-mode-btn {
@@ -512,6 +516,14 @@
   </div>
 </dialog>
 
+<dialog id="scoreWindowClosedInfo" class="booking-detail">
+  <div class="detail-team">Score entry isn't open</div>
+  <p class="detail-sentence" id="scoreWindowClosedMessage"></p>
+  <div class="score-edit-warning-actions">
+    <button type="button" class="quick-score-save" id="scoreWindowClosedOk" style="width:100%;">OK</button>
+  </div>
+</dialog>
+
 <!-- GA4 notice banner (adr-0018, amended) -- hidden by default; JS only
      shows it when GA_MEASUREMENT_ID is configured and it hasn't been
      dismissed yet. Acknowledgment-only by deliberate choice -- see the
@@ -539,7 +551,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.6";
+const APP_VERSION = "26.08.17.7";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1473,12 +1485,30 @@ function openMatchView_(r) {
   renderQuickScore_(r);
   matchView.hidden = false;
   startMatchViewPoll_();
+  // Nothing in this app calls pushState anywhere else -- tab switches are
+  // plain in-memory state, same as they've always been. Only the match
+  // view gets a history entry, and only so the phone's native back
+  // button/gesture has something to catch: without this, back had nothing
+  // of ours to step through and fell straight through to leaving the app.
+  // Same URL, not a real navigation -- this is purely to make popstate
+  // fire on the way back out.
+  history.pushState({ matchView: true }, '', location.href);
 }
-document.getElementById('matchViewBack').addEventListener('click', () => {
+function closeMatchView_() {
   matchView.hidden = true;
   openMatchRow_ = null;
   stopMatchViewPoll_();
   switchTab_(matchViewReturnTab_);
+}
+document.getElementById('matchViewBack').addEventListener('click', () => {
+  // Goes through history.back() rather than calling closeMatchView_()
+  // directly, so the on-screen arrow and the phone's native back button
+  // both funnel through the same popstate handler below -- one close path,
+  // not two ways of reaching the same state that could drift apart.
+  history.back();
+});
+window.addEventListener('popstate', () => {
+  if (!matchView.hidden) closeMatchView_();
 });
 
 function startMatchViewPoll_() {
@@ -1522,9 +1552,9 @@ function setMatchViewScore_(text, live) {
 // One button, not a two-way toggle (2026-08-17, after trying the segmented
 // View/Edit pair live) -- it reads "Edit score"/"Add score" while viewing
 // and switches to "View" once editing, rather than showing both options
-// side by side. Disabled/faded while viewing if the edit window's closed,
-// so "you can't right now" is still shown rather than the button vanishing;
-// always enabled once editing, since going back to view is always allowed.
+// side by side. Faded (not truly disabled -- see showScoreWindowClosedInfo_)
+// while viewing if the edit window's closed, and tapping it explains why
+// rather than doing nothing.
 function renderQuickScore_(r) {
   const el = document.getElementById('quickScoreArea');
   const matchId = r['Match ID'];
@@ -1540,19 +1570,20 @@ function renderQuickScore_(r) {
   const hasScore = r['Score For'] && r['Score Against'];
   const modeLabel = editingScore_ ? 'View Only Mode' : (hasScore ? 'Edit Score' : 'Add Score');
 
+  const unavailable = !editingScore_ && !editWindow.open;
   el.innerHTML = `
     <div class="quick-score-mode-row">
-      <button type="button" class="quick-score-mode-btn" id="quickScoreModeBtn" ${!editingScore_ && !editWindow.open ? 'disabled' : ''}>${modeLabel}</button>
+      <button type="button" class="quick-score-mode-btn${unavailable ? ' quick-score-mode-btn-unavailable' : ''}" id="quickScoreModeBtn">${modeLabel}</button>
     </div>
     <div id="quickScoreBody"></div>`;
-  document.getElementById('quickScoreModeBtn').addEventListener('click', (e) => {
+  document.getElementById('quickScoreModeBtn').addEventListener('click', () => {
     if (editingScore_) {
       editingScore_ = false;
       scoreFormDirty_ = false;
       renderQuickScore_(r);
       return;
     }
-    if (e.currentTarget.disabled) return;
+    if (!editWindow.open) { showScoreWindowClosedInfo_(editWindow.reason); return; }
     confirmScoreEdit_(() => { editingScore_ = true; renderQuickScore_(r); });
   });
 
@@ -1588,6 +1619,17 @@ function confirmScoreEdit_(onConfirm) {
     scoreEditWarning.close();
     onConfirm();
   };
+}
+
+// Tapping the mode button while the edit window's closed used to do
+// nothing at all -- a real :disabled button never fires a click event, so
+// there was no way to explain why short of reading the small status line
+// below it. This gives tapping an actual response.
+const scoreWindowClosedInfo = document.getElementById('scoreWindowClosedInfo');
+function showScoreWindowClosedInfo_(reason) {
+  document.getElementById('scoreWindowClosedMessage').textContent = 'Score entry ' + reason + '.';
+  scoreWindowClosedInfo.showModal();
+  document.getElementById('scoreWindowClosedOk').onclick = () => scoreWindowClosedInfo.close();
 }
 
 // +/- tally, not incremental live scoring (adr-0020) -- two independent
