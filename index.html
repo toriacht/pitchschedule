@@ -539,7 +539,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.17.5";
+const APP_VERSION = "26.08.17.6";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1560,16 +1560,18 @@ function renderQuickScore_(r) {
 
   setMatchViewScore_(hasScore ? `${r['Score For']} – ${r['Score Against']}` : 'vs');
   const body = document.getElementById('quickScoreBody');
-  if (hasScore) {
-    const updated = r['Score Updated'] ? new Date(r['Score Updated']) : null;
-    body.innerHTML = updated
-      ? `<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>`
-      : '';
-  } else if (!editWindow.open) {
-    body.innerHTML = `<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`;
-  } else {
-    body.innerHTML = '';
+  // The window-closed reason has to show whenever the button's actually
+  // disabled, whether or not a score already exists -- it used to only
+  // render in the no-score branch, so a match that already had a score
+  // (even a leftover "0-0") showed a greyed-out button with no
+  // explanation at all once its window closed.
+  const parts = [];
+  if (hasScore && r['Score Updated']) {
+    const updated = new Date(r['Score Updated']);
+    parts.push(`<div class="quick-score-meta">Last updated ${updated.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>`);
   }
+  if (!editWindow.open) parts.push(`<div class="quick-score-status">Score entry ${editWindow.reason}.</div>`);
+  body.innerHTML = parts.join('');
 }
 
 // Custom-styled dialog, not window.confirm() -- a native confirm() looks
