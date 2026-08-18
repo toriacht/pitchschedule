@@ -20,7 +20,14 @@
        own tinted slot backgrounds. --dot-now/--dot-free keep the original
        amber/green for just the small ● indicator, so the at-a-glance
        colour cue survives while the actual text stays legible. */
-    --muted: #475569; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #1e3a5f;
+    /* Darkened again 2026-08-18 (#475569 -> #334155) -- the old value
+       already cleared WCAG AA (7.2-7.6:1) everywhere it's used, so this
+       wasn't a compliance failure, but a real everyday-legibility one
+       (small text, a phone screen outdoors at a match). Same value
+       .slot-meta already darkened to on 2026-08-14 for the identical
+       complaint -- proven, tested, just not pulled out to the shared
+       variable until now. */
+    --muted: #334155; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #1e3a5f;
     --success: #1e3a5f; --dot-now: #f59e0b; --dot-free: #22c55e; --border: #e6edf5;
     --pitch1: #4fa8e8; --pitch2: #1e3a5f; --pitch3: #b7791f;
   }
@@ -126,7 +133,7 @@
   .slot-label.now-label { color: var(--now); }
   .slot.free .slot-label { color: var(--success); }
   .slot-team { font-weight: 700; font-size: 1.05rem; }
-  .slot-meta { font-size: 0.85rem; font-weight: 600; color: #334155; }
+  .slot-meta { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
   .highlight { outline: 2px solid var(--accent); }
   /* One-shot pulse on the ● dot, fired only on an actual data refresh (see
      justSynced in the script below) -- not a continuous blink. A dot that
@@ -319,8 +326,13 @@
   /* Goals+points combined into one number per side ("1-11" -> 14), shown
      directly under the score (2026-08-18) -- kept in sync with the score
      itself from inside setMatchViewScore_, since that's the one place
-     already updated on every poll tick and every +/- tap. */
-  .match-view-score-total { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+     already updated on every poll tick and every +/- tap. Sized and
+     coloured to read as PART of the score, not a meta caption -- the
+     first version was 0.85rem/muted, indistinguishable from the date/
+     pitch line below it. Negative margin-top pulls it up into
+     .match-view-crests' own margin-bottom, closing the gap that made it
+     look detached from the score above it. */
+  .match-view-score-total { color: var(--text); font-size: 1.15rem; font-weight: 700; margin-top: -6px; }
 
   /* ---------- Quick Score tally (adr-0020, a +/- counter, not incremental live scoring) ---------- */
   .quick-score { background: var(--panel); border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); margin-bottom: 16px; }
@@ -566,7 +578,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.2";
+const APP_VERSION = "26.08.18.3";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
