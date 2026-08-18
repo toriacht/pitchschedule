@@ -505,17 +505,24 @@
   /* ---------- More tab (adr-0020) -- informational only ---------- */
   .more-list { margin-top: 8px; }
   .more-item { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
-  .more-item-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .more-item-title { font-weight: 700; font-size: 0.9rem; }
   .more-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
-  /* Chevron on every More row except the dark-mode toggle (which already
-     has its own switch as the row's affordance) -- matches the mockup's
-     list style. Purely visual, same glyph/colour as .pitch-card's chevron
-     elsewhere: these rows don't navigate anywhere (the info's already
-     shown in full below the title), so unlike the pitch cards this isn't
-     signalling "tap for more," just carrying the same list-row look. */
-  .more-item-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .more-item-title-row .more-item-title { margin-bottom: 4px; }
-  .more-item-chevron { color: var(--muted); font-size: 1rem; flex-shrink: 0; }
+  .more-item-body p { margin: 0 0 8px 0; }
+  .more-item-body p:last-child { margin-bottom: 0; }
+  /* Real disclosure rows (2026-08-18) -- the chevron used to be pure
+     decoration (every body was always shown); a real button now, body
+     hidden until tapped, chevron rotates to show state. Every row but the
+     dark-mode toggle, which already has its own always-visible control. */
+  .more-item-title-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+    background: none; border: none; padding: 0; margin-bottom: 0; font: inherit; color: inherit;
+    text-align: left; cursor: pointer;
+  }
+  .more-item.expanded .more-item-title-row { margin-bottom: 8px; }
+  .more-item-chevron { color: var(--muted); font-size: 1rem; flex-shrink: 0; transition: transform 0.15s ease; }
+  .more-item.expanded .more-item-chevron { transform: rotate(90deg); }
+  .more-item-body { display: none; }
+  .more-item.expanded .more-item-body { display: block; }
   /* Dark mode toggle (adr-0021) -- a quick switch directly in More, not a
      Settings sub-screen: this is the app's one setting, so a whole screen
      to hold it would be pure extra navigation. Deliberately built so
@@ -622,23 +629,30 @@
       </div>
     </div>
     <div class="more-item">
-      <div class="more-item-title-row"><div class="more-item-title">Pitch information</div><span class="more-item-chevron">›</span></div>
+      <button type="button" class="more-item-title-row" aria-expanded="false"><span class="more-item-title">Pitch information</span><span class="more-item-chevron">›</span></button>
       <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are Athlone GAA's pitches. Bookings come straight from the club's fixtures &amp; training email.</div>
     </div>
     <div class="more-item">
-      <div class="more-item-title-row"><div class="more-item-title">How to use this app</div><span class="more-item-chevron">›</span></div>
-      <div class="more-item-body">Tap a pitch card on Home to see what's on there next. Tap any match for full details or to share it. Match scores can be added or edited by anyone using the app, Wikipedia-style — no login needed, a casual best-effort record rather than the official one. Editing opens a few hours before throw-in and stays open until the day after the match; changes update live for everyone else looking at that match too. Install the app to your home screen for one-tap access.</div>
+      <button type="button" class="more-item-title-row" aria-expanded="false"><span class="more-item-title">How to use this app</span><span class="more-item-chevron">›</span></button>
+      <div class="more-item-body">
+        <p><b>Home</b> — What's happening on each pitch right now, and what's next. Tap a pitch card to jump to its full schedule.</p>
+        <p><b>Schedule</b> — The full list for the next 8 days. Filter by pitch, by today, or by matches only, or search by team.</p>
+        <p><b>Matches</b> — Just the matches, grouped by day, this week or next. Tap one for full details, to share it, or to add/edit the score.</p>
+        <p><b>More</b> — This tab: dark mode, pitch &amp; app info, and how to get in touch.</p>
+        <p>Match scores can be added or edited by anyone using the app, Wikipedia-style — no login needed, a casual best-effort record rather than the official one. Editing opens a few hours before throw-in and stays open until the day after the match; changes update live for everyone else looking at that match too.</p>
+        <p>Install the app to your home screen for one-tap access.</p>
+      </div>
     </div>
     <div class="more-item">
-      <div class="more-item-title-row"><div class="more-item-title">About Athlone GAA</div><span class="more-item-chevron">›</span></div>
+      <button type="button" class="more-item-title-row" aria-expanded="false"><span class="more-item-title">About Athlone GAA</span><span class="more-item-chevron">›</span></button>
       <div class="more-item-body">Athlone GAA — Gaelic football for all ages in Athlone, Co. Westmeath.</div>
     </div>
     <div class="more-item">
-      <div class="more-item-title-row"><div class="more-item-title">About this app</div><span class="more-item-chevron">›</span></div>
+      <button type="button" class="more-item-title-row" aria-expanded="false"><span class="more-item-title">About this app</span><span class="more-item-chevron">›</span></button>
       <div class="more-item-body sync-rows" id="aboutAppRows"></div>
     </div>
     <div class="more-item">
-      <div class="more-item-title-row"><div class="more-item-title">Contact / feedback</div><span class="more-item-chevron">›</span></div>
+      <button type="button" class="more-item-title-row" aria-expanded="false"><span class="more-item-title">Contact / feedback</span><span class="more-item-chevron">›</span></button>
       <div class="more-item-body">Spotted something wrong with the schedule, or have a suggestion? Get in touch with the club through the usual channels.</div>
     </div>
   </div>
@@ -734,7 +748,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.9";
+const APP_VERSION = "26.08.18.10";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1624,6 +1638,16 @@ document.querySelectorAll('#tabMatches [data-range]').forEach(btn => {
 document.getElementById('darkModeToggle').addEventListener('change', (e) => {
   try { localStorage.setItem(THEME_KEY, e.target.checked ? 'dark' : 'light'); } catch (err) {}
   applyTheme_();
+});
+
+// More tab: each row's chevron toggles its own body, independently of the
+// others (not an accordion -- no reason opening one should close another).
+document.querySelectorAll('#tabMore .more-item-title-row').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.more-item');
+    const expanded = item.classList.toggle('expanded');
+    btn.setAttribute('aria-expanded', String(expanded));
+  });
 });
 
 const searchInput = document.getElementById('search');
