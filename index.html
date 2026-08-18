@@ -748,7 +748,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.11";
+const APP_VERSION = "26.08.18.12";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1197,7 +1197,6 @@ function renderAboutApp_() {
   }
 
   out.push(`<div>Next check for updates <b>${nextSyncText()}</b></div>`);
-  out.push(`<div>Showing <b>${scheduleRows.length}</b> of ${allRows.length} bookings</div>`);
   out.push(`<div>App version <b>${APP_VERSION_FULL}</b></div>`);
 
   el.innerHTML = out.join('');
