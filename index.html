@@ -637,9 +637,9 @@
       <div class="more-item-body">
         <p><b>Home</b> — What's happening on each pitch right now, and what's next. Tap a pitch card to jump to its full schedule.</p>
         <p><b>Schedule</b> — The full list for the next 8 days. Filter by pitch, by today, or by matches only, or search by team.</p>
-        <p><b>Matches</b> — Just the matches, grouped by day, this week or next. Tap one for full details, to share it, or to add/edit the score.</p>
+        <p><b>Matches</b> — Just the matches, grouped by day, this week or next. Tap one for full details or to share it — see Scoring below for adding or editing a result.</p>
+        <p><b>Scoring</b> — The only part of this app anyone can write to, so here's exactly how it works. Open a match and tap Add Score (or Edit, once one's recorded); use the +/− buttons to tally each side's goals and points — there's no free-text box to get wrong. Anyone using the app can do this, Wikipedia-style, with no login. It's a casual, best-effort record, not the official one — please only enter a score you're confident actually happened. Editing opens a few hours before throw-in and stays open until the day after the match; a save is immediate and shows live for everyone else looking at that match, and can be corrected again by anyone, including you, any time the window's still open.</p>
         <p><b>More</b> — This tab: dark mode, pitch &amp; app info, and how to get in touch.</p>
-        <p>Match scores can be added or edited by anyone using the app, Wikipedia-style — no login needed, a casual best-effort record rather than the official one. Editing opens a few hours before throw-in and stays open until the day after the match; changes update live for everyone else looking at that match too.</p>
         <p>Install the app to your home screen for one-tap access.</p>
       </div>
     </div>
@@ -748,7 +748,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.10";
+const APP_VERSION = "26.08.18.11";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
