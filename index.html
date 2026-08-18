@@ -677,7 +677,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.5";
+const APP_VERSION = "26.08.18.6";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1328,7 +1328,10 @@ function renderSchedule() {
       const fillText = rowPitchDef ? rowPitchDef.text : '#ffffff';
       const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
-      const pitchPill = showPitchCol ? `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span>` : '';
+      // Unlike the desktop table's Pitch column, the mobile pill stays even
+      // when a pitch filter is active -- it's a useful colour cue on its
+      // own, not just redundant "which pitch" info (2026-08-18).
+      const pitchPill = `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span>`;
       cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
           <div class="booking-left">${pitchPill}<span class="booking-time">${displayTime(r)}</span></div>
