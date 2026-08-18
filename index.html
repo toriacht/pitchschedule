@@ -507,6 +507,15 @@
   .more-item { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
   .more-item-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
   .more-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  /* Chevron on every More row except the dark-mode toggle (which already
+     has its own switch as the row's affordance) -- matches the mockup's
+     list style. Purely visual, same glyph/colour as .pitch-card's chevron
+     elsewhere: these rows don't navigate anywhere (the info's already
+     shown in full below the title), so unlike the pitch cards this isn't
+     signalling "tap for more," just carrying the same list-row look. */
+  .more-item-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .more-item-title-row .more-item-title { margin-bottom: 4px; }
+  .more-item-chevron { color: var(--muted); font-size: 1rem; flex-shrink: 0; }
   /* Dark mode toggle (adr-0021) -- a quick switch directly in More, not a
      Settings sub-screen: this is the app's one setting, so a whole screen
      to hold it would be pure extra navigation. Deliberately built so
@@ -613,23 +622,23 @@
       </div>
     </div>
     <div class="more-item">
-      <div class="more-item-title">Pitch information</div>
+      <div class="more-item-title-row"><div class="more-item-title">Pitch information</div><span class="more-item-chevron">›</span></div>
       <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are Athlone GAA's pitches. Bookings come straight from the club's fixtures &amp; training email.</div>
     </div>
     <div class="more-item">
-      <div class="more-item-title">How to use this app</div>
-      <div class="more-item-body">Tap a pitch card on Home to see what's on there next. Tap any match to see full details, share it, or (if it's within a few hours of throw-in) add the score. Install it to your home screen for one-tap access.</div>
+      <div class="more-item-title-row"><div class="more-item-title">How to use this app</div><span class="more-item-chevron">›</span></div>
+      <div class="more-item-body">Tap a pitch card on Home to see what's on there next. Tap any match for full details or to share it. Match scores can be added or edited by anyone using the app, Wikipedia-style — no login needed, a casual best-effort record rather than the official one. Editing opens a few hours before throw-in and stays open until the day after the match; changes update live for everyone else looking at that match too. Install the app to your home screen for one-tap access.</div>
     </div>
     <div class="more-item">
-      <div class="more-item-title">About Athlone GAA</div>
+      <div class="more-item-title-row"><div class="more-item-title">About Athlone GAA</div><span class="more-item-chevron">›</span></div>
       <div class="more-item-body">Athlone GAA — Gaelic football for all ages in Athlone, Co. Westmeath.</div>
     </div>
     <div class="more-item">
-      <div class="more-item-title">About this app</div>
+      <div class="more-item-title-row"><div class="more-item-title">About this app</div><span class="more-item-chevron">›</span></div>
       <div class="more-item-body sync-rows" id="aboutAppRows"></div>
     </div>
     <div class="more-item">
-      <div class="more-item-title">Contact / feedback</div>
+      <div class="more-item-title-row"><div class="more-item-title">Contact / feedback</div><span class="more-item-chevron">›</span></div>
       <div class="more-item-body">Spotted something wrong with the schedule, or have a suggestion? Get in touch with the club through the usual channels.</div>
     </div>
   </div>
@@ -725,7 +734,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.8";
+const APP_VERSION = "26.08.18.9";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1150,14 +1159,6 @@ function nextSyncText() {
     : next.toLocaleString('en-IE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function ageText(ms) {
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return mins + ' min';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 48) return hrs + ' hour' + (hrs === 1 ? '' : 's');
-  return Math.floor(hrs / 24) + ' days';
-}
-
 // Freshness/version, rendered straight into the More tab's "About this
 // app" card (2026-08-18) -- used to be a tappable header pill (visible on
 // every tab) that opened this same content in a dialog; moved here
@@ -1174,7 +1175,6 @@ function renderAboutApp_() {
   if (newest) {
     const ageMs = new Date() - newest;
     out.push(`<div>Schedule published <b>${newest.toLocaleString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b></div>`);
-    out.push(`<div>That's <b>${ageText(ageMs)}</b> ago</div>`);
     if (ageMs / 86400000 > STALE_AFTER_DAYS) {
       out.push(`<div class="sync-warn">No newer fixtures email has arrived — this may be out of date.</div>`);
     }
