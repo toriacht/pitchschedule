@@ -763,7 +763,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.13";
+const APP_VERSION = "26.08.18.14";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1013,10 +1013,16 @@ let allRows = [];
 let pitchFilter = null; // null = all pitches; otherwise '1' | '2' | '3'
 let matchesOnly = false;
 let todayOnly = false;
-// Bottom nav (adr-0020): in-memory only, not URL-synced, same as the
-// filter state above -- consistent with this app's existing precedent
-// rather than adding new routing infrastructure. matchesRange is the
-// Matches tab's own sub-filter, independent of the Schedule tab's toggles.
+// Bottom nav (adr-0020): not URL-synced, same as the filter state above --
+// consistent with this app's existing precedent rather than adding new
+// routing infrastructure. The active tab specifically is persisted to
+// localStorage (2026-08-18, TAB_KEY near switchTab_) so a refresh/reopen
+// doesn't always dump you back on Home -- reported as unexpected in
+// practice, even though it followed adr-0020 exactly as designed. The
+// Schedule/Matches filter state (pitchFilter etc.) still resets on every
+// load, deliberately unchanged -- only the tab was the actual complaint.
+// matchesRange is the Matches tab's own sub-filter, independent of the
+// Schedule tab's toggles.
 let currentTab_ = 'home';
 let matchesRange_ = 'week';
 // The currently-rendered (filtered) rows, in the same order as the mobile
@@ -1463,6 +1469,7 @@ function render() {
 // "Now/Next" only describes Home's content, not the Matches or More
 // tabs, so it shouldn't sit there unconditionally.
 const TAB_TITLES = { home: 'Now/Next', schedule: 'Schedule', matches: 'Matches', more: 'More' };
+const TAB_KEY = 'pitchScheduleTab';
 function switchTab_(name) {
   currentTab_ = name;
   ['home', 'schedule', 'matches', 'more'].forEach(t => {
@@ -1471,11 +1478,24 @@ function switchTab_(name) {
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
   document.getElementById('pageTitle').textContent = TAB_TITLES[name] || 'Now/Next';
   window.scrollTo(0, 0);
+  try { localStorage.setItem(TAB_KEY, name); } catch (err) {} // private browsing / quota -- just skip persisting
 }
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab_(btn.dataset.tab));
 });
 document.getElementById('viewAllMatchesBtn').addEventListener('click', () => switchTab_('matches'));
+
+// Restore the last tab used, if any -- runs synchronously here (not after
+// loadData()) so it applies before first paint, same reasoning as the
+// dark-mode theme script in <head>: switching visibility only touches the
+// tab <section>s' `hidden` attribute, which doesn't depend on data having
+// loaded yet. Validated against TAB_TITLES so a corrupted/foreign
+// localStorage value can't hide every tab.
+(function restoreLastTab_() {
+  let stored = null;
+  try { stored = localStorage.getItem(TAB_KEY); } catch (err) {}
+  if (stored && TAB_TITLES[stored]) switchTab_(stored);
+})();
 
 // ---------- Swipe between tabs (2026-08-17) ----------
 // A left/right swipe anywhere on the page moves to the next/previous tab,
