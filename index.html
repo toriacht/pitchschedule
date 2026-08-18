@@ -30,7 +30,7 @@
        variable until now. */
     --muted: #334155; --accent: #4fa8e8; --accent2: #1e6fb8; --now: #1e3a5f;
     --success: #1e3a5f; --dot-now: #f59e0b; --dot-free: #22c55e; --border: #e6edf5;
-    --pitch1: #4fa8e8; --pitch2: #1e3a5f; --pitch3: #b7791f;
+    --pitch1: #4fa8e8; --pitch2: #1e3a5f; --pitch3: #d9a03e;
     /* Stale/ambiguous/error warning text -- was five separate hardcoded
        #92400e literals (dark mode, added 2026-08-18, needed one shared
        place to redefine this from). --warn-tint-rgb is the same colour's
@@ -264,15 +264,22 @@
   }
   .day-heading { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 18px 2px 8px; }
   .day-heading:first-child { margin-top: 0; }
-  .booking-card { background: var(--panel); border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; border-left: 3px solid var(--pitch-color, #94a3b8); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
-  .booking-top { display: flex; align-items: center; gap: 6px; }
-  .booking-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  /* Sized up to match the match view's own spaciousness (2026-08-18) --
+     was padding: 7px 10px/border-radius: 8px, cramped enough that
+     colour/legibility issues were genuinely hard to judge on top of it.
+     Now roughly matches .quick-score/.more-item's padding and radius,
+     the other "panel card" surfaces already used elsewhere. */
+  .booking-card { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; border-left: 3px solid var(--pitch-color, #94a3b8); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+  .booking-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .booking-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
   /* Crest-coloured fill. Text colour comes from p.text per pitch (set
-     inline), not hardcoded -- see the PITCHES comment for why. */
-  .pitch-pill { font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
-  .booking-time { font-size: 0.72rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
-  .booking-team { font-weight: 700; font-size: 0.9rem; margin-top: 1px; line-height: 1.25; }
-  .booking-opponent { font-size: 0.76rem; color: var(--muted); margin-top: 1px; }
+     inline), not hardcoded -- see the PITCHES comment for why. Sized to
+     match .pitch-badge (the desktop table's equivalent), not its own
+     smaller size. */
+  .pitch-pill { font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .booking-time { font-size: 0.8rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .booking-team { font-weight: 700; font-size: 1rem; margin-top: 3px; line-height: 1.3; }
+  .booking-opponent { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
   .booking-card { cursor: pointer; }
 
   /* ---- tap-to-expand detail dialog (mobile cards only) ---- */
@@ -348,21 +355,26 @@
      looks identical in both places -- Live/Starting Soon/Won/Lost/Drawn,
      computed by matchStatus_(). */
   .match-status-pill {
-    display: inline-block; color: #ffffff; font-size: 0.65rem;
+    display: inline-block; color: #ffffff; font-size: 0.7rem;
     font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-    padding: 2px 7px; border-radius: 999px;
+    padding: 3px 9px; border-radius: 999px;
   }
   .status-live { background: #dc2626; }
   .status-soon { background: #b45309; }
   .status-won { background: #15803d; }
-  .status-lost, .status-drawn { background: #64748b; }
+  /* Lost now genuinely red (2026-08-18), not sharing Drawn's neutral grey
+     -- a deliberately deeper red than Live's, so "this is happening now"
+     and "this is over, and we lost" don't read as the same alert colour
+     at a glance. */
+  .status-lost { background: #b91c1c; }
+  .status-drawn { background: #64748b; }
   .booking-left .match-status-pill { margin-right: 6px; }
   .match-view-status-row { text-align: center; margin-bottom: 8px; }
   .match-view-status-row:empty { margin-bottom: 0; }
   .booking-score-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 1px; }
   .booking-score-row .booking-team, .booking-score-row .booking-opponent { margin-top: 0; }
-  .booking-score-num { font-weight: 700; font-size: 0.95rem; color: var(--text); white-space: nowrap; }
-  .match-competition { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent2); margin-bottom: 3px; }
+  .booking-score-num { font-weight: 700; font-size: 1.05rem; color: var(--text); white-space: nowrap; }
+  .match-competition { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent2); margin-bottom: 4px; }
   .match-view-competition { text-align: center; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent2); margin-bottom: 10px; }
   .matches-day-group .booking-card { cursor: pointer; }
 
@@ -665,7 +677,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.4";
+const APP_VERSION = "26.08.18.5";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -713,16 +725,26 @@ const PITCHES = [
   // passed AA but threw the brand away: Pitch 3 read as brown, and worse, as
   // the same brown used for stale-data and ambiguous-time warnings. The
   // problem was never the crest colours, it was pinning the text to white.
-  // Dark text on the real gold measures 4.90:1 and on the real light blue
-  // 6.88:1 -- both pass. Navy is dark enough to keep white text. Same move
-  // as the NOW/Free labels: change the text, keep the colour.
+  // Dark text on the real light blue measures 6.88:1 -- comfortably past
+  // AA. Navy is dark enough to keep white text. Same move as the NOW/Free
+  // labels: change the text, keep the colour.
+  //
+  // Pitch 3's own gold couldn't take the same fix, though (2026-08-18) --
+  // dark text on the original #b7791f only reached 4.90:1, technically
+  // passing but reported as genuinely hard to read in practice, the same
+  // "passes AA, still uncomfortable" gap --muted hit the same day. Neither
+  // direction from #b7791f helped much (darkening it moves toward the
+  // dark text's own luminance, lightening the text doesn't have anywhere
+  // better to go against a hue with this much mid-range warmth) -- the fix
+  // was lightening the GOLD itself to #d9a03e, which reaches 7.69:1 and
+  // still unambiguously reads as gold, not a mood-killing pastel.
   //
   // `solid` survives for one job only: where the hue is used as TEXT on a
   // light background (the inactive pitch filter buttons), where the crest
   // colours genuinely can't pass.
   { id: '1', name: 'Pitch 1 — Front Pitch', color: '#4fa8e8', text: '#0f172a', solid: '#1e6fb8' },
   { id: '2', name: 'Pitch 2 — Back Pitch', color: '#1e3a5f', text: '#ffffff', solid: '#1e3a5f' },
-  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#b7791f', text: '#0f172a', solid: '#92400e' },
+  { id: '3', name: 'Pitch 3 — Davy Allen Pitch', color: '#d9a03e', text: '#0f172a', solid: '#92400e' },
 ];
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 // While a match's full-screen view is open, poll faster than the rest of
