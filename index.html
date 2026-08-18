@@ -3,12 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Sets data-theme on <html> before first paint, so a manual dark/light
+     override (More tab, 2026-08-18) doesn't flash the wrong palette while
+     the rest of the page loads. Absent key/value -> no attribute -> the
+     prefers-color-scheme media query below decides, same as before this
+     existed. -->
+<script>
+(function() {
+  try {
+    var t = localStorage.getItem('pitchScheduleTheme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (err) {}
+})();
+</script>
 <title>Athlone GAA</title>
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e6fb8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+<!-- Two conditional tags replaced by one JS-driven tag (2026-08-18) -- the
+     media-query pair could reflect *system* preference but not a manual
+     override; applyTheme_() below keeps this in sync with whichever one's
+     actually in effect. -->
+<meta name="theme-color" content="#1e6fb8" id="themeColorMeta">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Athlone GAA">
@@ -48,8 +64,8 @@
        white-on-button legibility. */
     --accent2-fill: #1e6fb8;
   }
-  /* ---------- Dark mode (2026-08-18, system-preference only -- no manual
-     toggle yet) ----------
+  /* ---------- Dark mode (2026-08-18 system-preference; manual toggle added
+     same day, More tab) ----------
      Every value here was picked and verified the same way the light
      palette's fixes were (see test-contrast.js, which checks both
      palettes): computed against its real background, including the
@@ -61,14 +77,25 @@
      regardless of theme, which is what makes lightening --accent2 safe.
      --dot-now/--dot-free and the PITCHES/status-pill colours are left
      alone deliberately -- small, self-contained saturated accents whose
-     own internal contrast doesn't depend on the page background. */
+     own internal contrast doesn't depend on the page background.
+
+     Two selectors, same values: the media query is what a user who's never
+     touched the toggle sees (follows the OS), `[data-theme="dark"]` is what
+     "Dark mode: on" forces regardless of OS. `:not([data-theme="light"])`
+     on the media-query version stops it fighting an explicit "off". */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
       --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
       --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
       --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
+    --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
+    --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
+    --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36;
   }
   * { box-sizing: border-box; }
   body {
@@ -158,10 +185,13 @@
   .pitch-toggle-2 { color: #1e3a5f; }
   .pitch-toggle-3 { color: #92400e; }
   @media (prefers-color-scheme: dark) {
-    .pitch-toggle-1 { color: var(--accent2); }
-    .pitch-toggle-2 { color: var(--accent2); }
-    .pitch-toggle-3 { color: var(--now); }
+    :root:not([data-theme="light"]) .pitch-toggle-1 { color: var(--accent2); }
+    :root:not([data-theme="light"]) .pitch-toggle-2 { color: var(--accent2); }
+    :root:not([data-theme="light"]) .pitch-toggle-3 { color: var(--now); }
   }
+  :root[data-theme="dark"] .pitch-toggle-1 { color: var(--accent2); }
+  :root[data-theme="dark"] .pitch-toggle-2 { color: var(--accent2); }
+  :root[data-theme="dark"] .pitch-toggle-3 { color: var(--now); }
   .filter-status { color: var(--muted); font-size: 0.85rem; margin: -4px 0 12px 0; text-align: center; }
   .now-next-grid {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px;
@@ -229,11 +259,15 @@
   .pitch-badge-3 { background: #f5ede1; color: #92400e; border: 1px solid #d9b888; }
   .pitch-badge-default { background: #f1f3f6; color: var(--muted); border: 1px solid #c6ced9; }
   @media (prefers-color-scheme: dark) {
-    .pitch-badge-1 { background: #253a52; color: var(--accent2); border-color: #386d97; }
-    .pitch-badge-2 { background: #1e2b40; color: var(--accent2); border-color: #1e324e; }
-    .pitch-badge-3 { background: #323437; color: var(--now); border-color: #70542c; }
-    .pitch-badge-default { background: #2e394c; border-color: #5d6a7e; }
+    :root:not([data-theme="light"]) .pitch-badge-1 { background: #253a52; color: var(--accent2); border-color: #386d97; }
+    :root:not([data-theme="light"]) .pitch-badge-2 { background: #1e2b40; color: var(--accent2); border-color: #1e324e; }
+    :root:not([data-theme="light"]) .pitch-badge-3 { background: #323437; color: var(--now); border-color: #70542c; }
+    :root:not([data-theme="light"]) .pitch-badge-default { background: #2e394c; border-color: #5d6a7e; }
   }
+  :root[data-theme="dark"] .pitch-badge-1 { background: #253a52; color: var(--accent2); border-color: #386d97; }
+  :root[data-theme="dark"] .pitch-badge-2 { background: #1e2b40; color: var(--accent2); border-color: #1e324e; }
+  :root[data-theme="dark"] .pitch-badge-3 { background: #323437; color: var(--now); border-color: #70542c; }
+  :root[data-theme="dark"] .pitch-badge-default { background: #2e394c; border-color: #5d6a7e; }
   .type-badge { padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
   .type-training { background: var(--panel2); color: var(--accent2); }
   /* Gold tint keeps the colour cue; the text is the darkened gold, since
@@ -481,6 +515,23 @@
   .more-item-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
   .more-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
   .more-version { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 16px; }
+  /* Dark mode toggle (adr-0021) -- a quick switch directly in More, not a
+     Settings sub-screen: this is the app's one setting, so a whole screen
+     to hold it would be pure extra navigation. Deliberately built so
+     promoting it under a "Settings" item later (once there's more than one
+     setting) only means moving this row, not redesigning it. */
+  .more-toggle-row { display: flex; align-items: center; justify-content: space-between; }
+  .more-toggle-label { font-weight: 700; font-size: 0.9rem; }
+  .theme-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+  .theme-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .theme-switch-slider { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: background 0.15s ease; pointer-events: none; }
+  .theme-switch-slider::before {
+    content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+    background: #ffffff; border-radius: 50%; transition: transform 0.15s ease; box-shadow: 0 1px 2px rgba(15,23,42,0.3);
+  }
+  .theme-switch input:checked + .theme-switch-slider { background: var(--accent2-fill); }
+  .theme-switch input:checked + .theme-switch-slider::before { transform: translateX(20px); }
+  .theme-switch input:focus-visible + .theme-switch-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -561,6 +612,15 @@
 <!-- ---------- Tab: More (adr-0020) -- informational only, no admin login ---------- -->
 <section id="tabMore" class="tab-page" hidden>
   <div class="more-list">
+    <div class="more-item">
+      <div class="more-toggle-row">
+        <span class="more-toggle-label">☾ Dark mode</span>
+        <label class="theme-switch">
+          <input type="checkbox" id="darkModeToggle" aria-label="Dark mode">
+          <span class="theme-switch-slider"></span>
+        </label>
+      </div>
+    </div>
     <div class="more-item">
       <div class="more-item-title">Pitch information</div>
       <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are shared by Athlone GAA and Southern Gaels. Bookings come straight from the club's fixtures &amp; training email.</div>
@@ -677,7 +737,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.6";
+const APP_VERSION = "26.08.18.7";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -714,6 +774,40 @@ function usagePingDeviceId_() {
   });
   fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + params.toString()).catch(() => {});
 })();
+
+// ---- Dark mode toggle (adr-0021) ----
+// The <head> script already set data-theme from localStorage before first
+// paint (avoids a flash); this just keeps the toggle UI, the theme-color
+// meta tag, and future OS-preference changes in sync with that same value.
+const THEME_KEY = 'pitchScheduleTheme';
+function storedTheme_() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return (t === 'light' || t === 'dark') ? t : null;
+  } catch (err) {
+    return null; // private browsing / quota -- falls back to system preference
+  }
+}
+function effectiveTheme_() {
+  return storedTheme_() || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+}
+function applyTheme_() {
+  const stored = storedTheme_();
+  if (stored) document.documentElement.setAttribute('data-theme', stored);
+  else document.documentElement.removeAttribute('data-theme');
+  const eff = effectiveTheme_();
+  document.getElementById('themeColorMeta').setAttribute('content', eff === 'dark' ? '#0f172a' : '#1e6fb8');
+  const toggle = document.getElementById('darkModeToggle');
+  if (toggle) toggle.checked = eff === 'dark';
+}
+applyTheme_();
+// Only relevant while no explicit override is stored -- once the user's
+// touched the toggle, their choice sticks regardless of OS changes.
+if (window.matchMedia) {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (!storedTheme_()) applyTheme_();
+  });
+}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
@@ -1563,6 +1657,11 @@ document.querySelectorAll('#tabMatches [data-range]').forEach(btn => {
 });
 
 document.getElementById('moreVersion').textContent = 'Athlone GAA ' + APP_VERSION_FULL;
+
+document.getElementById('darkModeToggle').addEventListener('change', (e) => {
+  try { localStorage.setItem(THEME_KEY, e.target.checked ? 'dark' : 'light'); } catch (err) {}
+  applyTheme_();
+});
 
 const searchInput = document.getElementById('search');
 const searchClear = document.getElementById('searchClear');
