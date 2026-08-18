@@ -619,7 +619,48 @@
     <button id="matchesToggle" class="toggle-btn">Matches</button>
   </div>
   <div class="filter-status" id="filterStatus"></div>
-  <div id="panels"><div class="empty-msg">Loading schedule…</div></div>
+  <!-- Static first-paint skeleton (2026-08-18), same reasoning/pattern as
+       nowNextGrid's above: renderSchedule() clears innerHTML and replaces
+       this outright the moment data arrives, so it's plain HTML, not
+       JS-driven. Was a bare "Loading schedule…" empty-msg line -- replaced
+       because it read as a different, flatter loading state than Home's,
+       when the actual wait (one shared CSV fetch) is identical. Both
+       shapes included, same as the real render -- CSS's max-width:800px
+       query is what actually picks one, same as it does for real rows. -->
+  <div id="panels">
+    <table class="desktop-schedule"><thead><tr><th>Pitch</th><th>Date</th><th>Time</th><th>Team</th><th>Type</th><th>Opponent</th></tr></thead><tbody>
+      <tr><td><span class="skeleton-bar" style="width:56px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:64px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:70px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:50%;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:60px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:40%;">&nbsp;</span></td></tr>
+      <tr><td><span class="skeleton-bar" style="width:56px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:64px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:70px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:50%;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:60px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:40%;">&nbsp;</span></td></tr>
+      <tr><td><span class="skeleton-bar" style="width:56px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:64px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:70px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:50%;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:60px;">&nbsp;</span></td><td><span class="skeleton-bar" style="width:40%;">&nbsp;</span></td></tr>
+    </tbody></table>
+    <div class="mobile-schedule">
+      <div class="day-heading"><span class="skeleton-bar" style="width:90px;">&nbsp;</span></div>
+      <div class="booking-card">
+        <div class="booking-top">
+          <div class="booking-left"><span class="skeleton-bar" style="width:56px;">&nbsp;</span><span class="skeleton-bar" style="width:70px; margin-left:8px;">&nbsp;</span></div>
+          <span class="skeleton-bar" style="width:60px;">&nbsp;</span>
+        </div>
+        <div class="booking-team"><span class="skeleton-bar" style="width:60%;">&nbsp;</span></div>
+        <div class="booking-opponent"><span class="skeleton-bar" style="width:40%;">&nbsp;</span></div>
+      </div>
+      <div class="booking-card">
+        <div class="booking-top">
+          <div class="booking-left"><span class="skeleton-bar" style="width:56px;">&nbsp;</span><span class="skeleton-bar" style="width:70px; margin-left:8px;">&nbsp;</span></div>
+          <span class="skeleton-bar" style="width:60px;">&nbsp;</span>
+        </div>
+        <div class="booking-team"><span class="skeleton-bar" style="width:45%;">&nbsp;</span></div>
+        <div class="booking-opponent"><span class="skeleton-bar" style="width:30%;">&nbsp;</span></div>
+      </div>
+      <div class="booking-card">
+        <div class="booking-top">
+          <div class="booking-left"><span class="skeleton-bar" style="width:56px;">&nbsp;</span><span class="skeleton-bar" style="width:70px; margin-left:8px;">&nbsp;</span></div>
+          <span class="skeleton-bar" style="width:60px;">&nbsp;</span>
+        </div>
+        <div class="booking-team"><span class="skeleton-bar" style="width:55%;">&nbsp;</span></div>
+        <div class="booking-opponent"><span class="skeleton-bar" style="width:35%;">&nbsp;</span></div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ---------- Tab: Matches (new, adr-0020) ---------- -->
@@ -628,7 +669,27 @@
     <button type="button" class="toggle-btn active" data-range="week">This Week</button>
     <button type="button" class="toggle-btn" data-range="nextWeek">Next Week</button>
   </div>
-  <div id="matchesTabPanel"><div class="empty-msg">Loading matches…</div></div>
+  <!-- Static first-paint skeleton (2026-08-18) -- see #panels above for
+       the full reasoning. Matches has no desktop-table variant even in
+       the real render (matchCardHtml_ is card-shaped at every width), so
+       this is cards only, no .mobile-schedule/.desktop-schedule split. -->
+  <div id="matchesTabPanel">
+    <div class="day-heading"><span class="skeleton-bar" style="width:90px;">&nbsp;</span></div>
+    <div class="booking-card">
+      <div class="booking-top">
+        <div class="booking-left"><span class="skeleton-bar" style="width:60px;">&nbsp;</span><span class="skeleton-bar" style="width:70px; margin-left:8px;">&nbsp;</span></div>
+      </div>
+      <div class="booking-team"><span class="skeleton-bar" style="width:55%;">&nbsp;</span></div>
+      <div class="booking-opponent"><span class="skeleton-bar" style="width:35%;">&nbsp;</span></div>
+    </div>
+    <div class="booking-card">
+      <div class="booking-top">
+        <div class="booking-left"><span class="skeleton-bar" style="width:60px;">&nbsp;</span><span class="skeleton-bar" style="width:70px; margin-left:8px;">&nbsp;</span></div>
+      </div>
+      <div class="booking-team"><span class="skeleton-bar" style="width:40%;">&nbsp;</span></div>
+      <div class="booking-opponent"><span class="skeleton-bar" style="width:28%;">&nbsp;</span></div>
+    </div>
+  </div>
 </section>
 
 <!-- ---------- Tab: More (adr-0020) -- informational only, no admin login ---------- -->
@@ -763,7 +824,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.14";
+const APP_VERSION = "26.08.18.15";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
