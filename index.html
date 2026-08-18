@@ -75,9 +75,14 @@
      almost entirely as plain text here, not as a button fill --
      --accent2-fill (unchanged, see above) keeps solid buttons legible
      regardless of theme, which is what makes lightening --accent2 safe.
-     --dot-now/--dot-free and the PITCHES/status-pill colours are left
-     alone deliberately -- small, self-contained saturated accents whose
-     own internal contrast doesn't depend on the page background.
+     --dot-now/--dot-free and most of the PITCHES/status-pill colours are
+     left alone deliberately -- small, self-contained saturated accents
+     whose own internal (text-on-fill) contrast doesn't depend on the page
+     background. --pitch2 is the one exception (2026-08-18): Pitch 2's
+     navy (#1e3a5f) is a *fill/border* colour, not just text, and measured
+     1.27:1 against the dark --panel -- not a text-contrast problem, a
+     "this shape is nearly the same colour as the page it's sitting on"
+     problem. Lightened for dark mode only; light mode's navy is untouched.
 
      Two selectors, same values: the media query is what a user who's never
      touched the toggle sees (follows the OS), `[data-theme="dark"]` is what
@@ -88,14 +93,14 @@
       --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
       --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
       --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
-      --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36;
+      --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #5f92cc;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
     --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
     --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
-    --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36;
+    --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #5f92cc;
   }
   * { box-sizing: border-box; }
   body {
@@ -166,14 +171,13 @@
     padding: 9px 17px; border-radius: 999px; border: 1px solid var(--accent2);
     background: var(--panel2); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 600;
   }
-  /* Inactive-state text colour only -- the active state stays an inline
-     style (background+color both p.color/p.text, a self-contained solid
-     pill whose own contrast doesn't depend on the page theme, same
-     reasoning as PITCHES/status pills elsewhere). This one specifically
-     needed a class: p.solid (tuned dark, for a light --panel2) went
-     unreadable once --panel2 itself went dark (dark mode, 2026-08-18) --
-     Pitch 2's own navy solid colour on dark navy --panel2 was nearly
-     invisible, not just failing AA. */
+  /* Inactive-state text colour only -- the active state reuses
+     .pitch-pill-N (2026-08-18) instead of its own class, same fill+text
+     pairing as the pitch pills elsewhere. This one specifically needed a
+     class: p.solid (tuned dark, for a light --panel2) went unreadable
+     once --panel2 itself went dark (dark mode, 2026-08-18) -- Pitch 2's
+     own navy solid colour on dark navy --panel2 was nearly invisible, not
+     just failing AA. */
   .pitch-toggle-1 { color: #1e6fb8; }
   .pitch-toggle-2 { color: #1e3a5f; }
   .pitch-toggle-3 { color: #92400e; }
@@ -299,11 +303,22 @@
   .booking-card { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; border-left: 3px solid var(--pitch-color, #94a3b8); box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
   .booking-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
   .booking-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-  /* Crest-coloured fill. Text colour comes from p.text per pitch (set
-     inline), not hardcoded -- see the PITCHES comment for why. Sized to
-     match .pitch-badge (the desktop table's equivalent), not its own
-     smaller size. */
+  /* Sized to match .pitch-badge (the desktop table's equivalent), not its
+     own smaller size. Fill/text come from .pitch-pill-1/2/3/default, not
+     an inline style (2026-08-18) -- same reasoning as .pitch-badge: an
+     inline style computed from PITCHES can't carry a dark-mode override,
+     which is exactly what Pitch 2 needed (see the --pitch2 comment above
+     .pitch-card). Pitch 1/3 don't get a dark block -- their light-mode
+     values already separate fine from the dark palette on their own. */
   .pitch-pill { font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .pitch-pill-1 { background: #4fa8e8; color: #0f172a; }
+  .pitch-pill-2 { background: #1e3a5f; color: #ffffff; }
+  .pitch-pill-3 { background: #d9a03e; color: #0f172a; }
+  .pitch-pill-default { background: #64748b; color: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .pitch-pill-2 { background: var(--pitch2); color: #0f172a; }
+  }
+  :root[data-theme="dark"] .pitch-pill-2 { background: var(--pitch2); color: #0f172a; }
   .booking-time { font-size: 0.8rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
   .booking-team { font-weight: 700; font-size: 1rem; margin-top: 3px; line-height: 1.3; }
   .booking-opponent { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
@@ -565,17 +580,17 @@
        arrives, so it's plain HTML, not JS-driven, and needs no update if
        the real render is slow or the fetch fails. -->
   <div class="now-next-grid" id="nowNextGrid">
-    <div class="pitch-card" style="border-top: 4px solid #4fa8e8;">
+    <div class="pitch-card" style="border-top: 4px solid var(--pitch1);">
       <h2>Pitch 1 — Front Pitch</h2>
       <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
       <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
     </div>
-    <div class="pitch-card" style="border-top: 4px solid #1e3a5f;">
+    <div class="pitch-card" style="border-top: 4px solid var(--pitch2);">
       <h2>Pitch 2 — Back Pitch</h2>
       <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
       <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
     </div>
-    <div class="pitch-card" style="border-top: 4px solid #b7791f;">
+    <div class="pitch-card" style="border-top: 4px solid var(--pitch3);">
       <h2>Pitch 3 — Davy Allen Pitch</h2>
       <div class="slot free"><div class="slot-label">Now</div><span class="skeleton-bar" style="width: 70%;">&nbsp;</span></div>
       <div class="slot next"><div class="slot-label">Next</div><span class="skeleton-bar" style="width: 55%;">&nbsp;</span></div>
@@ -748,7 +763,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.12";
+const APP_VERSION = "26.08.18.13";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -824,7 +839,13 @@ if (window.matchMedia) {
 <script>
 const PITCHES = [
   // `color` is the crest hue and is what actually gets shown -- light blue,
-  // navy, gold. Filled pills use it directly, paired with `text`.
+  // navy, gold, paired with `text`. Filled pills/toggles/borders no longer
+  // read `color`/`text` directly at render time (2026-08-18) -- they look
+  // up a `.pitch-pill-N`/`var(--pitchN)` by `id` instead, so Pitch 2 can
+  // carry a dark-mode override (`--pitch2`, near :root) that an inline
+  // style could never respond to. The values below are still exactly what
+  // those classes/vars use for light mode (and for 1/3 in dark mode too --
+  // only Pitch 2 differs there).
   //
   // The earlier contrast fix darkened these instead (gold -> #92400e), which
   // passed AA but threw the brand away: Pitch 3 read as brown, and worse, as
@@ -1258,7 +1279,9 @@ function renderNowNext() {
 
     const card = document.createElement('div');
     card.className = 'pitch-card';
-    card.style.borderTop = `4px solid ${p.color}`;
+    // var(--pitchN), not p.color directly (2026-08-18) -- lets Pitch 2 pick
+    // up its dark-mode override; see the --pitch2 comment near :root.
+    card.style.borderTop = `4px solid var(--pitch${p.id})`;
     card.onclick = () => { pitchFilter = p.id; render(); document.getElementById('panels').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
     let html = `<span class="chevron">›</span><h2>${p.name}</h2>`;
 
@@ -1296,18 +1319,17 @@ function renderPitchToggles() {
   PITCHES.forEach(p => {
     const btn = document.createElement('button');
     const isActive = pitchFilter === p.id;
-    // Inactive text colour comes from the pitch-toggle-N class (dark-mode
-    // aware, see the CSS) -- only the active state's colours stay inline,
-    // since that pairing (p.text on p.color) is a self-contained solid
-    // fill that doesn't need a dark override.
-    btn.className = 'pitch-toggle' + (isActive ? '' : ' pitch-toggle-' + p.id);
+    // Inactive text colour comes from the pitch-toggle-N class; active
+    // state reuses .pitch-pill-N (2026-08-18, was inline p.text/p.color) --
+    // same fill+text pairing as the pitch pills elsewhere, including
+    // .pitch-pill-2's dark-mode override. Was a self-contained inline
+    // style on the theory its contrast didn't depend on the page theme,
+    // which turned out false for Pitch 2 specifically: an active navy
+    // button on a dark page measured 1.02:1 against its own inactive
+    // siblings, not just failing AA but functionally invisible.
+    btn.className = 'pitch-toggle' + (isActive ? ' pitch-pill-' + p.id : ' pitch-toggle-' + p.id);
     btn.textContent = p.name.split(' — ')[0]; // short label, e.g. "Pitch 1"
-    if (isActive) {
-      btn.style.color = p.text;
-      btn.style.background = p.color;
-    } else {
-      btn.style.background = 'var(--panel2)';
-    }
+    if (!isActive) btn.style.background = 'var(--panel2)';
     btn.onclick = () => {
       pitchFilter = isActive ? null : p.id; // click again to clear back to "all"
       render();
@@ -1396,14 +1418,17 @@ function renderSchedule() {
       }
       const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
       const pitchName = rowPitchDef ? rowPitchDef.name.split(' — ')[0] : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away');
-      const fill = rowPitchDef ? rowPitchDef.color : '#64748b';
-      const fillText = rowPitchDef ? rowPitchDef.text : '#ffffff';
-      const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
+      const pitchPillClass = 'pitch-pill-' + (rowPitchDef ? rowPitchDef.id : 'default');
+      // var(--pitchN), not rowPitchDef.color directly (2026-08-18) -- lets
+      // Pitch 2 pick up its dark-mode override; see the --pitch2 comment
+      // near :root. Falls back to the plain grey used elsewhere for a row
+      // whose Pitch value doesn't match any known pitch.
+      const border = rowPitchDef ? `var(--pitch${rowPitchDef.id})` : '#94a3b8';
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
       // Unlike the desktop table's Pitch column, the mobile pill stays even
       // when a pitch filter is active -- it's a useful colour cue on its
       // own, not just redundant "which pitch" info (2026-08-18).
-      const pitchPill = `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span>`;
+      const pitchPill = `<span class="pitch-pill ${pitchPillClass}">${pitchName}</span>`;
       cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
           <div class="booking-left">${pitchPill}<span class="booking-time">${displayTime(r)}</span></div>
@@ -1534,7 +1559,8 @@ function matchStatus_(r, now) {
 }
 function matchCardHtml_(r, idx, now) {
   const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
-  const border = rowPitchDef ? rowPitchDef.color : '#94a3b8';
+  // var(--pitchN), see the matching comment in renderSchedule()'s card loop.
+  const border = rowPitchDef ? `var(--pitch${rowPitchDef.id})` : '#94a3b8';
   const status = matchStatus_(r, now);
   const hasScore = r['Score For'] && r['Score Against'];
   // Team name left, score directly opposite it on the same row -- once
@@ -2213,12 +2239,11 @@ const bookingDetail = document.getElementById('bookingDetail');
 function openBookingDetail_(r) {
   const rowPitchDef = PITCHES.find(p => p.id === (r.Pitch || '').trim());
   const pitchName = rowPitchDef ? rowPitchDef.name : (r.Pitch ? ('Pitch ' + r.Pitch) : 'Away fixture');
-  const fill = rowPitchDef ? rowPitchDef.color : '#64748b';
-  const fillText = rowPitchDef ? rowPitchDef.text : '#ffffff';
+  const pitchPillClass = 'pitch-pill-' + (rowPitchDef ? rowPitchDef.id : 'default');
   const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
 
   document.getElementById('detailTop').innerHTML =
-    `<span class="pitch-pill" style="background:${fill};color:${fillText};">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
+    `<span class="pitch-pill ${pitchPillClass}">${pitchName}</span><span class="type-badge ${typeClass}">${r.Type}</span>`;
   document.getElementById('detailTeam').textContent = r.Team;
   document.getElementById('detailDatetime').textContent =
     `${fmtDayHeading(r.dateObj, new Date())}${displayTime(r) ? ' · ' + displayTime(r) : ''}`;
