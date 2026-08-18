@@ -120,20 +120,13 @@
   .controls-row {
     display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
   }
-  /* Deliberately almost invisible when healthy -- just a dot. Freshness is
-     an admin concern, not something a parent checking tonight's pitch needs
-     in their face. Tap it for the detail; ?debug=1 expands it inline. It
-     only earns real estate when the data is actually stale. */
-  .sync-pill {
-    font-size: 0.75rem; color: var(--muted); background: transparent; border: none;
-    border-radius: 999px; padding: 5px 10px; cursor: pointer; opacity: 0.55;
-  }
-  .sync-pill:hover { opacity: 1; }
-  /* Stale-data warning. #92400e is 6.76:1 on --bg -- the obvious choice,
-     --pitch3 (#b7791f), measures 3.47:1 and fails AA for text this small,
-     same trap as the NOW/Free labels. */
-  .sync-pill.stale { color: var(--warn); font-weight: 700; opacity: 1; }
-  .sync-rows { font-size: 0.92rem; color: var(--muted); line-height: 1.8; }
+  /* Freshness/version info used to be a tiny tappable header dot on every
+     tab ("an admin concern, not something a parent checking tonight's
+     pitch needs in their face") -- moved into the More tab's "About this
+     app" card instead (2026-08-18), so it's out of the way of every other
+     screen entirely rather than just visually minimised on them. .sync-rows
+     itself is unchanged, just re-homed from the syncDetail dialog. */
+  .sync-rows { font-size: 0.92rem; color: var(--muted); line-height: 1.5; }
   .sync-rows b { color: var(--text); font-weight: 600; }
   .sync-rows .sync-warn { color: var(--warn); font-weight: 700; }
   .install-cta {
@@ -319,10 +312,10 @@
   /* ---- tap-to-expand detail dialog (mobile cards only) ---- */
   /* background/color explicit, not left to the browser's native <dialog>
      default (dark mode, 2026-08-18) -- without this every dialog
-     (bookingDetail, syncDetail, scoreEditWarning, scoreWindowClosedInfo)
-     stayed a hardcoded white/canvas regardless of theme, while content
-     *inside* them (buttons using var(--panel) etc) correctly went dark --
-     a dark button floating on an otherwise-white dialog. */
+     (bookingDetail, scoreEditWarning, scoreWindowClosedInfo) stayed a
+     hardcoded white/canvas regardless of theme, while content *inside*
+     them (buttons using var(--panel) etc) correctly went dark -- a dark
+     button floating on an otherwise-white dialog. */
   .booking-detail { border: none; border-radius: 16px; padding: 22px; width: calc(100% - 56px); max-width: 360px; box-shadow: 0 12px 32px rgba(15,23,42,0.25); background: var(--panel); color: var(--text); }
   .booking-detail::backdrop { background: rgba(15,23,42,0.5); }
   .detail-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 999px; border: none; background: var(--panel2); color: var(--muted); font-size: 0.9rem; cursor: pointer; }
@@ -514,7 +507,6 @@
   .more-item { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
   .more-item-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
   .more-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
-  .more-version { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 16px; }
   /* Dark mode toggle (adr-0021) -- a quick switch directly in More, not a
      Settings sub-screen: this is the app's one setting, so a whole screen
      to hold it would be pure extra navigation. Deliberately built so
@@ -547,7 +539,6 @@
   </div>
   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
     <button id="installBtn" class="install-cta" style="display:none;"></button>
-    <button id="syncPill" class="sync-pill">🕒 Loading…</button>
   </div>
 </header>
 
@@ -623,7 +614,7 @@
     </div>
     <div class="more-item">
       <div class="more-item-title">Pitch information</div>
-      <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are shared by Athlone GAA and Southern Gaels. Bookings come straight from the club's fixtures &amp; training email.</div>
+      <div class="more-item-body">Pitch 1 (Front), Pitch 2 (Back) and Pitch 3 (Davy Allen) are Athlone GAA's pitches. Bookings come straight from the club's fixtures &amp; training email.</div>
     </div>
     <div class="more-item">
       <div class="more-item-title">How to use this app</div>
@@ -631,14 +622,17 @@
     </div>
     <div class="more-item">
       <div class="more-item-title">About Athlone GAA</div>
-      <div class="more-item-body">Athlone GAA — Gaelic football, hurling and camogie for all ages in Athlone, Co. Westmeath.</div>
+      <div class="more-item-body">Athlone GAA — Gaelic football for all ages in Athlone, Co. Westmeath.</div>
+    </div>
+    <div class="more-item">
+      <div class="more-item-title">About this app</div>
+      <div class="more-item-body sync-rows" id="aboutAppRows"></div>
     </div>
     <div class="more-item">
       <div class="more-item-title">Contact / feedback</div>
       <div class="more-item-body">Spotted something wrong with the schedule, or have a suggestion? Get in touch with the club through the usual channels.</div>
     </div>
   </div>
-  <div class="more-version" id="moreVersion"></div>
 </section>
 
 </div>
@@ -687,12 +681,6 @@
   <p class="detail-sentence" id="detailSentence"></p>
 </dialog>
 
-<dialog id="syncDetail" class="booking-detail">
-  <button class="detail-close" id="syncClose" aria-label="Close">✕</button>
-  <div class="detail-team">Data freshness</div>
-  <div class="sync-rows" id="syncRows"></div>
-</dialog>
-
 <dialog id="scoreEditWarning" class="booking-detail">
   <div class="detail-team">Editing this score</div>
   <p class="detail-sentence">This updates the score live for everyone using the app right now.</p>
@@ -737,7 +725,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.18.7";
+const APP_VERSION = "26.08.18.8";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1170,38 +1158,16 @@ function ageText(ms) {
   return Math.floor(hrs / 24) + ' days';
 }
 
-function isDebug() {
-  return new URLSearchParams(location.search).has('debug');
-}
-
-function updateSyncPill() {
-  const pill = document.getElementById('syncPill');
-  const newest = newestEmailDate(allRows);
-  const debug = isDebug();
-
-  if (!newest) {
-    pill.classList.remove('stale');
-    pill.textContent = debug ? `no data · next ${nextSyncText()}` : '●';
-    pill.setAttribute('aria-label', 'Data freshness: unknown. Tap for detail.');
-    return;
-  }
-
-  const ageDays = (new Date() - newest) / 86400000;
-  const stale = ageDays > STALE_AFTER_DAYS;
-  pill.classList.toggle('stale', stale);
-
-  if (debug) {
-    const dateTxt = newest.toLocaleString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    pill.textContent = `${dateTxt} · ${Math.floor(ageDays)}d old · next ${nextSyncText()} · ${APP_VERSION_FULL}`;
-  } else {
-    // Healthy: a bare dot, nothing more. Stale earns a number.
-    pill.textContent = stale ? `● ${Math.floor(ageDays)}d` : '●';
-  }
-  pill.setAttribute('aria-label',
-    `Schedule last updated ${ageText(new Date() - newest)} ago${stale ? ' — out of date' : ''}. Tap for detail.`);
-}
-
-function openSyncDetail() {
+// Freshness/version, rendered straight into the More tab's "About this
+// app" card (2026-08-18) -- used to be a tappable header pill (visible on
+// every tab) that opened this same content in a dialog; moved here
+// entirely rather than just kept quiet, since it's an admin/debug concern,
+// not something a parent checking tonight's pitch needs anywhere on the
+// main screens. No debug-flag branch needed any more -- there's nothing
+// left to expand into, this is already the fullest version of the info.
+function renderAboutApp_() {
+  const el = document.getElementById('aboutAppRows');
+  if (!el) return;
   const newest = newestEmailDate(allRows);
   const out = [];
 
@@ -1220,8 +1186,7 @@ function openSyncDetail() {
   out.push(`<div>Showing <b>${scheduleRows.length}</b> of ${allRows.length} bookings</div>`);
   out.push(`<div>App version <b>${APP_VERSION_FULL}</b></div>`);
 
-  document.getElementById('syncRows').innerHTML = out.join('');
-  document.getElementById('syncDetail').showModal();
+  el.innerHTML = out.join('');
 }
 
 async function loadData() {
@@ -1246,7 +1211,7 @@ async function loadData() {
     return { ...r, dateObj: date, time };
   }).filter(r => r.Date && !isNaN(r.dateObj));
 
-  updateSyncPill();
+  renderAboutApp_();
 
   justSynced = true;
   render();
@@ -1655,8 +1620,6 @@ document.querySelectorAll('#tabMatches [data-range]').forEach(btn => {
     renderMatchesTab_();
   });
 });
-
-document.getElementById('moreVersion').textContent = 'Athlone GAA ' + APP_VERSION_FULL;
 
 document.getElementById('darkModeToggle').addEventListener('change', (e) => {
   try { localStorage.setItem(THEME_KEY, e.target.checked ? 'dark' : 'light'); } catch (err) {}
@@ -2286,12 +2249,6 @@ function openMatchFromUrl_() {
   if (r) openRow_(r);
 }
 
-// Freshness detail -- the pill itself stays near-invisible, this is where the
-// actual information lives.
-const syncDetail = document.getElementById('syncDetail');
-document.getElementById('syncPill').addEventListener('click', openSyncDetail);
-document.getElementById('syncClose').addEventListener('click', () => syncDetail.close());
-syncDetail.addEventListener('click', (e) => { if (e.target === syncDetail) syncDetail.close(); });
 // Clicking the backdrop registers as a click on the <dialog> element itself
 // (not any of its content) -- the standard way to detect a backdrop click.
 bookingDetail.addEventListener('click', (e) => { if (e.target === bookingDetail) bookingDetail.close(); });
