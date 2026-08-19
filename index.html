@@ -288,6 +288,7 @@
   th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
   tbody tr:nth-child(even) { background: var(--bg); }
   tr.today-row { background: rgba(245,158,11,0.08) !important; }
+  tr.postponed { opacity: 0.6; }
   .team-cell { font-weight: 600; }
   .opponent-cell { color: var(--muted); }
   /* Rows became clickable (adr-0019, to reach the score/detail dialog on
@@ -419,7 +420,17 @@
      at a glance. */
   .status-lost { background: #b91c1c; }
   .status-drawn { background: #64748b; }
+  /* Deliberately its own colour, not a shade of Drawn's grey or Lost's red
+     -- postponed isn't "this happened and here's the result," it's "this
+     isn't happening as scheduled," a different kind of status entirely
+     (2026-08-19). */
+  .status-postponed { background: #44403c; }
   .booking-left .match-status-pill { margin-right: 6px; }
+  /* Dims the whole card, on top of the pill -- reported directly as a
+     wanted combination ("a pill or greyed out... or something"), not an
+     either/or. Same opacity value the app already uses elsewhere for "this
+     control isn't currently usable" (.quick-score-mode-btn-unavailable). */
+  .booking-card.postponed { opacity: 0.6; }
   .match-view-status-row { text-align: center; margin-bottom: 8px; }
   .match-view-status-row:empty { margin-bottom: 0; }
   .booking-score-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 1px; }
@@ -833,7 +844,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.2";
+const APP_VERSION = "26.08.19.3";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1475,9 +1486,10 @@ function renderSchedule() {
         pitchCell = `<td><span class="pitch-badge ${badgeClass}">${pitchName}</span></td>`;
       }
       const typeClass = r.Type === 'Match' ? 'type-match' : (r.Type === 'Blitz' ? 'type-blitz' : 'type-training');
-      tableHtml += `<tr class="${isToday ? 'today-row' : ''}" data-idx="${idx}">
+      const postponed = isPostponed_(r);
+      tableHtml += `<tr class="${isToday ? 'today-row' : ''}${postponed ? ' postponed' : ''}" data-idx="${idx}">
         ${pitchCell}<td>${fmtDate(r.dateObj)}</td><td>${displayTime(r)}</td><td class="team-cell">${r.Team}</td>
-        <td><span class="type-badge ${typeClass}">${r.Type}</span></td>
+        <td><span class="type-badge ${typeClass}">${r.Type}</span>${postponed ? ' <span class="match-status-pill status-postponed">Postponed</span>' : ''}</td>
         <td class="opponent-cell">${r.Opponent || ''}</td>
       </tr>`;
     });
@@ -1505,9 +1517,11 @@ function renderSchedule() {
       // when a pitch filter is active -- it's a useful colour cue on its
       // own, not just redundant "which pitch" info (2026-08-18).
       const pitchPill = `<span class="pitch-pill ${pitchPillClass}">${pitchName}</span>`;
-      cardsHtml += `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
+      const postponed = isPostponed_(r);
+      const postponedPill = postponed ? '<span class="match-status-pill status-postponed">Postponed</span>' : '';
+      cardsHtml += `<div class="booking-card${postponed ? ' postponed' : ''}" data-idx="${idx}" style="--pitch-color:${border};">
         <div class="booking-top">
-          <div class="booking-left">${pitchPill}<span class="booking-time">${displayTime(r)}</span></div>
+          <div class="booking-left">${pitchPill}${postponedPill}<span class="booking-time">${displayTime(r)}</span></div>
           <span class="type-badge ${typeClass}">${r.Type}</span>
         </div>
         <div class="booking-team">${r.Team}</div>
@@ -1613,6 +1627,17 @@ function isMatchLive_(r, now) {
     now.getHours() * 60 + now.getMinutes() >= r.time.start &&
     now.getHours() * 60 + now.getMinutes() < r.time.end;
 }
+// "Postponed" isn't a field the fixtures email has ever had structured --
+// it shows up as free text tacked onto the end of a fixture's own sentence
+// ("...on pitch 2. Postponed"), same place as any other one-off note.
+// Detected here, from Details (the full original sentence, adr-0019),
+// rather than adding a new parsed column in Code.gs -- liberal discovery
+// in the same spirit as adr-0014, just applied client-side since Details
+// is already served and this only ever affects display, never what gets
+// accepted as a row at all (2026-08-19).
+function isPostponed_(r) {
+  return /postponed/i.test(r.Details || '');
+}
 // "1-11" (1 goal, 11 points) -> 14, GAA's usual combined score. null for
 // anything that isn't a valid "G-P" string (blank, no score yet).
 function scoreTotal_(s) {
@@ -1628,6 +1653,10 @@ const STARTING_SOON_MIN = 60;
 // Anything outside all of these (too far before kickoff, or over with no
 // score recorded) gets no pill -- nothing useful to say yet.
 function matchStatus_(r, now) {
+  // Checked first, unconditionally -- a postponed match was never live,
+  // was never "starting soon" in any way that matters, and won't have a
+  // real Won/Lost/Drawn result to show even if a stray score exists.
+  if (isPostponed_(r)) return { label: 'Postponed', cls: 'status-postponed' };
   if (isMatchLive_(r, now)) return { label: 'Live', cls: 'status-live' };
   if (!r.time) return null;
   const dayStart = atMidnight(r.dateObj);
@@ -1660,7 +1689,7 @@ function matchCardHtml_(r, idx, now) {
     ? `<div class="booking-score-row"><span class="booking-team">${r.Team}</span><span class="booking-score-num">${r['Score For']}</span></div>
        ${r.Opponent ? `<div class="booking-score-row"><span class="booking-opponent">${r.Opponent}</span><span class="booking-score-num">${r['Score Against']}</span></div>` : ''}`
     : `<div class="booking-team">${r.Team}</div>${r.Opponent ? `<div class="booking-opponent">vs ${r.Opponent}</div>` : ''}`;
-  return `<div class="booking-card" data-idx="${idx}" style="--pitch-color:${border};">
+  return `<div class="booking-card${status && status.cls === 'status-postponed' ? ' postponed' : ''}" data-idx="${idx}" style="--pitch-color:${border};">
     ${r.Competition ? `<div class="match-competition">${titleCase_(r.Competition)}</div>` : ''}
     <div class="booking-top">
       <div class="booking-left">${status ? `<span class="match-status-pill ${status.cls}">${status.label}</span>` : ''}<span class="booking-time">${displayTime(r)}</span></div>
@@ -2001,6 +2030,10 @@ function renderQuickScore_(r) {
   const editWindow = r.time ? scoreEditWindowClient_(atMidnight(r.dateObj), r.time.start, new Date()) : { open: false, reason: 'has no stated kickoff time' };
   // TEMPORARY (2026-08-16) -- see SCORE_WINDOW_PREVIEW_OVERRIDE in CONFIG.
   if (SCORE_WINDOW_PREVIEW_OVERRIDE) editWindow.open = true;
+  // A postponed match never accepts a score, full stop -- there's no
+  // result to record, and this overrides even the preview flag above,
+  // unlike a merely-not-open-yet window (2026-08-19).
+  if (isPostponed_(r)) { editWindow.open = false; editWindow.reason = "isn't available for a postponed match"; }
   // The window can close while someone's mid-edit (rare, but a match does
   // eventually pass midnight) -- fall back to view rather than leave a
   // now-disabled button showing an open form.
