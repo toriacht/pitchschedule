@@ -933,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.15";
+const APP_VERSION = "26.08.19.16";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -2127,10 +2127,28 @@ function stopMatchViewPoll_() {
 // still see the next update land, same as a passive viewer would).
 // Silently clobbering an in-progress, *unsaved* tally out from under
 // someone's fingers would be worse than the staleness this exists to fix.
+//
+// A second, subtler race found live (2026-08-19, reported directly:
+// "if I've updated the score it's not updated ... until I refresh"):
+// scoreFormDirty_ resets to false the moment a submission SUCCEEDS, which
+// is exactly the guard above stops protecting. A poll already in flight
+// when that submission committed -- or one that just happens to land in
+// the next second or two -- can still be carrying the pre-submission CSV,
+// and without a second check, that "fresh" read would silently overwrite
+// the score this device just confirmed, reverting it right in front of
+// whoever just tapped Submit. Guarded the same way the lost-update race
+// itself was (adr-0019's delta+lock amendment): compare `Score Updated`
+// rather than trusting "fresh" just because it's the latest poll response
+// -- a poll response only wins if it's genuinely at least as new as what's
+// already showing, so a just-confirmed submission can never be
+// downgraded by a slower-arriving, older read of the same match.
 function refreshOpenMatchView_() {
   if (!openMatchRow_ || scoreFormDirty_) return;
   const fresh = allRows.find(row => row['Match ID'] === openMatchRow_['Match ID']);
   if (!fresh) return; // the match dropped out of the feed -- leave the stale view rather than blank it
+  const freshUpdated = fresh['Score Updated'] ? new Date(fresh['Score Updated']) : null;
+  const currentUpdated = openMatchRow_['Score Updated'] ? new Date(openMatchRow_['Score Updated']) : null;
+  if (currentUpdated && (!freshUpdated || freshUpdated < currentUpdated)) return; // a stale/racing poll response -- leave the more current view alone
   openMatchRow_ = fresh;
   document.getElementById('matchShareBtn').onclick = () => shareMatch_(fresh);
   renderQuickScore_(fresh);
