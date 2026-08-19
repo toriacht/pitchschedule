@@ -84,10 +84,14 @@
      "this shape is nearly the same colour as the page it's sitting on"
      problem. First fix (a mid blue, #5f92cc) solved that but created a
      second one -- reported as reading too close to Pitch 1's own blue at
-     a glance -- so this went white instead (2026-08-19), which both
-     separates further from the dark panel (14.6:1, up from 4.5:1) and
-     reads unambiguously as its own colour next to Pitch 1's blue and
-     Pitch 3's gold. Light mode's navy is untouched either way.
+     a glance -- so this went to a near-white instead (2026-08-19), which
+     both separates further from the dark panel than the mid-blue attempt
+     did (12.4:1, up from 4.5:1) and reads unambiguously as its own colour
+     next to Pitch 1's blue and Pitch 3's gold. Pure white (#ffffff) was
+     tried first and, on its own report, felt too bright/stark against the
+     rest of the dark palette -- #e8edf3 (a soft, faintly cool off-white)
+     keeps the same distinctness without that harshness. Light mode's navy
+     is untouched either way.
 
      Two selectors, same values: the media query is what a user who's never
      touched the toggle sees (follows the OS), `[data-theme="dark"]` is what
@@ -98,14 +102,14 @@
       --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
       --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
       --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
-      --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #ffffff;
+      --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #e8edf3;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
     --muted: #a8b7c9; --accent: #7ec4f6; --accent2: #6bb3ea;
     --now: #fcd34d; --success: #6ee7a0; --border: #33445c;
-    --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #ffffff;
+    --warn: #fbbf24; --warn-tint-rgb: 251, 191, 36; --pitch2: #e8edf3;
   }
   * { box-sizing: border-box; }
   body {
@@ -829,7 +833,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.1";
+const APP_VERSION = "26.08.19.2";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
