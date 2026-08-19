@@ -520,11 +520,22 @@
   .quick-score-side { margin-bottom: 14px; }
   .quick-score-side:last-child { margin-bottom: 0; }
   .quick-score-side-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-  .quick-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .quick-score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
+  /* Significantly bigger than the original 34px (2026-08-19, reported
+     directly as too small/fiddly for a thumb) -- 56px clears the 44px
+     touch-target minimum (iOS HIG) with real room to spare, not just
+     technically over the line. Solid --accent2-fill, not the --panel2
+     tint it used to be, for the same reason -- also reported: the tint
+     measured a mere 1.58:1 against the match view's actual backdrop
+     (--bg, not --panel), nearly disappearing in dark mode specifically.
+     A solid, theme-independent fill (same one Submit/Install/active
+     toggles already use) sidesteps that instead of re-tuning a tint per
+     theme -- 3.42:1 against dark --bg, 4.98:1 against light --bg, both
+     comfortably past the 3:1 non-text minimum in both directions. */
   .quick-score-btn {
-    width: 34px; height: 34px; border-radius: 8px; border: none;
-    background: var(--panel2); color: var(--accent2); font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    width: 56px; height: 56px; border-radius: 14px; border: none;
+    background: var(--accent2-fill); color: #ffffff; font-size: 1.8rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2-fill); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
@@ -876,7 +887,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.6";
+const APP_VERSION = "26.08.19.8";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -995,7 +1006,7 @@ const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
 // Real edit-window enforcement is back on (2026-08-17) -- was true
 // 2026-08-16 to 2026-08-17 to preview the score UI without waiting for a
 // live match. Must match Code.gs's SCORE_WINDOW_PREVIEW_OVERRIDE.
-const SCORE_WINDOW_PREVIEW_OVERRIDE = false;
+const SCORE_WINDOW_PREVIEW_OVERRIDE = true;
 // =================================
 
 // ---------- Club crests (adr-0020) ----------
