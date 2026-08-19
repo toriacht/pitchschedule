@@ -933,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.13";
+const APP_VERSION = "26.08.19.14";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1077,6 +1077,7 @@ const CREST_FILE = {
   'castletown finea coole whitehall': 'Castletown_Finea_Coole_Whitehall.png',
   'castletown geoghegan': 'Castletown_Geoghegan.png',
   'caulry': 'Caulry.png',
+  'cill oige': 'Cill_Oige.jpg',
   'coralstown kinnegad': 'Coralstown-Kinnegad.png',
   'crookedwood': 'Crookedwood.png',
   'cullion': 'Cullion.png',
@@ -1118,6 +1119,13 @@ const CREST_FILE = {
 // ambiguous between two real clubs and was left unmapped for that reason
 // until confirmed directly: bare "Mullingar" in this data means Mullingar
 // Shamrocks specifically, not St Loman's.
+// Some entries here are shorthand; "cill ogie" is a plain misspelling
+// (checked directly against the live email data, 2026-08-19) -- the
+// fixture email consistently writes "Cill Ogie" (transposed letters),
+// not the club's actual name "Cill Óige" (confirmed off their own crest).
+// Reported as "the crest isn't populating"; the real cause wasn't a
+// missing crest file, it was that the misspelled name never matched any
+// key at all, canonical or otherwise.
 const CREST_ALIAS = {
   'kinnegad': 'coralstown kinnegad',
   'moate': 'moate all whites',
@@ -1125,9 +1133,22 @@ const CREST_ALIAS = {
   'mullingar': 'mullingar shamrocks',
   'st lomans': 'st lomans mullingar',
   'coole whitehall': 'castletown finea coole whitehall',
+  'cill ogie': 'cill oige',
 };
 function normalizeClubName_(name) {
   return String(name || '')
+    // Fold accented letters to their plain ASCII base BEFORE the a-z-only
+    // strip below (2026-08-19, found live: "Cill Óige" -- the fada on Ó
+    // was being deleted outright, not folded to "o", so it normalized to
+    // "cill ige" and never matched the "cill oige" crest key at all,
+    // however that key was spelled). NFD splits an accented character
+    // into its base letter plus a separate combining-mark codepoint;
+    // stripping the Combining Diacritical Marks block (U+0300-U+036F)
+    // leaves just the base letters. Several real Westmeath club names
+    // carry a fada (Naomh, Éire-prefixed names, etc.), so this isn't
+    // Cill Óige-specific -- any of them would have hit the same bug the
+    // moment an email happened to spell one with the accent.
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[’']/g, '')
     .replace(/[.\-]/g, ' ')
