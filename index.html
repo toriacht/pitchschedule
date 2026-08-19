@@ -542,22 +542,23 @@
      to --text than --muted for the same reason. */
   .quick-score-row-label { flex: 1; font-size: 1.05rem; font-weight: 600; color: var(--text); }
   /* Significantly bigger than the original 34px (2026-08-19, reported
-     directly as too small/fiddly for a thumb) -- 48px clears the 44px
+     directly as too small/fiddly for a thumb) -- 52px clears the 44px
      touch-target minimum (iOS HIG), not just technically over the line.
-     Dialled back from an initial 56px the same day -- reported as
-     crowding the row gaps too tight once it was that big; 48px plus a
-     real 10px row gap (was 2px) reads as more distinct rows for the same
-     total height, not just smaller buttons. Solid --accent2-fill, not the
-     --panel2 tint it used to be, for the same reason -- also reported:
-     the tint measured a mere 1.58:1 against the match view's actual
-     backdrop (--bg, not --panel), nearly disappearing in dark mode
-     specifically. A solid, theme-independent fill (same one Submit/
-     Install/active toggles already use) sidesteps that instead of
+     Went 34 -> 56 -> 48 -> 52px the same day: 56px crowded the row gaps
+     too tight; 48px (plus a real 10px row gap, was 2px) fixed that, but
+     was picked from a mockup (four side-by-side sizes, A-D, published as
+     an Artifact for a direct comparison) once dropped into the real page
+     it was compared against -- 52px was the one chosen there. Solid
+     --accent2-fill, not the --panel2 tint it used to be, for the same
+     reason -- also reported: the tint measured a mere 1.58:1 against the
+     match view's actual backdrop (--bg, not --panel), nearly disappearing
+     in dark mode specifically. A solid, theme-independent fill (same one
+     Submit/Install/active toggles already use) sidesteps that instead of
      re-tuning a tint per theme -- still clears the 3:1 non-text minimum
      against both --bg values at this size. */
   .quick-score-btn {
-    width: 48px; height: 48px; border-radius: 12px; border: none;
-    background: var(--accent2-fill); color: #ffffff; font-size: 1.5rem; font-weight: 700; cursor: pointer;
+    width: 52px; height: 52px; border-radius: 12px; border: none;
+    background: var(--accent2-fill); color: #ffffff; font-size: 1.65rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
   /* Enlarged alongside the +/- buttons (2026-08-19) -- was reading as a
@@ -932,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.11";
+const APP_VERSION = "26.08.19.12";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
