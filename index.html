@@ -933,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.17";
+const APP_VERSION = "26.08.19.18";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -2092,7 +2092,7 @@ function openMatchView_(r) {
   // of ours to step through and fell straight through to leaving the app.
   // Same URL, not a real navigation -- this is purely to make popstate
   // fire on the way back out.
-  history.pushState({ matchView: true }, '', location.href);
+  history.pushState({ matchView: true, editing: false }, '', location.href);
 }
 function closeMatchView_() {
   matchView.hidden = true;
@@ -2107,22 +2107,23 @@ document.getElementById('matchViewBack').addEventListener('click', () => {
   // not two ways of reaching the same state that could drift apart.
   history.back();
 });
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (event) => {
   if (matchView.hidden) return;
-  // Back while editing returns to View Only Mode first, not straight out
-  // of the match view -- undoes one layer at a time, same as "back"
-  // already means everywhere else in the app (2026-08-19, requested
-  // directly: "should a back click in edit mode not go back to view only
-  // mode rather than back two clicks"). Only one pushState happened when
-  // the match view opened (openMatchView_), so the back that just fired
-  // already popped it -- re-pushing here restores that entry so the NEXT
-  // back still has something to catch, instead of falling through past
-  // the match view on the very next press.
-  if (editingScore_ && openMatchRow_) {
-    editingScore_ = false;
+  // Depth is declared up front at each transition (openMatchView_ pushes
+  // editing:false, entering edit mode pushes editing:true) rather than
+  // reconstructed reactively here -- a pushState-inside-popstate re-push
+  // (the previous approach) is a known-fragile pattern that didn't
+  // reliably register with an installed/standalone PWA's native back
+  // button (found live, 2026-08-19: two back presses from edit mode
+  // closed the whole app instead of landing on the match list). Reading
+  // the state that's already there sidesteps that entirely -- back while
+  // editing lands on View Only Mode first, one layer at a time, same as
+  // "back" means everywhere else in the app.
+  const state = event.state;
+  if (state && state.matchView) {
+    editingScore_ = !!state.editing;
     scoreFormDirty_ = false;
     renderQuickScore_(openMatchRow_);
-    history.pushState({ matchView: true }, '', location.href);
     return;
   }
   closeMatchView_();
@@ -2237,13 +2238,21 @@ function renderQuickScore_(r) {
     <div id="quickScoreBody"></div>`;
   document.getElementById('quickScoreModeBtn').addEventListener('click', () => {
     if (editingScore_) {
-      editingScore_ = false;
-      scoreFormDirty_ = false;
-      renderQuickScore_(r);
+      // Goes through history.back() rather than flipping editingScore_
+      // directly, so this button and the phone's back button both funnel
+      // through the same popstate handler -- one path in and out of edit
+      // mode, not two that could drift apart (2026-08-19, found live: a
+      // reactive pushState-inside-popstate re-push was unreliable on an
+      // installed/standalone PWA's native back button).
+      history.back();
       return;
     }
     if (!editWindow.open) { showScoreWindowClosedInfo_(editWindow.reason); return; }
-    confirmScoreEdit_(() => { editingScore_ = true; renderQuickScore_(r); });
+    confirmScoreEdit_(() => {
+      editingScore_ = true;
+      renderQuickScore_(r);
+      history.pushState({ matchView: true, editing: true }, '', location.href);
+    });
   });
 
   if (editingScore_) { renderQuickScoreForm_(r); return; }
