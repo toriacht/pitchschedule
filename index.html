@@ -933,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.16";
+const APP_VERSION = "26.08.19.17";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -2108,7 +2108,24 @@ document.getElementById('matchViewBack').addEventListener('click', () => {
   history.back();
 });
 window.addEventListener('popstate', () => {
-  if (!matchView.hidden) closeMatchView_();
+  if (matchView.hidden) return;
+  // Back while editing returns to View Only Mode first, not straight out
+  // of the match view -- undoes one layer at a time, same as "back"
+  // already means everywhere else in the app (2026-08-19, requested
+  // directly: "should a back click in edit mode not go back to view only
+  // mode rather than back two clicks"). Only one pushState happened when
+  // the match view opened (openMatchView_), so the back that just fired
+  // already popped it -- re-pushing here restores that entry so the NEXT
+  // back still has something to catch, instead of falling through past
+  // the match view on the very next press.
+  if (editingScore_ && openMatchRow_) {
+    editingScore_ = false;
+    scoreFormDirty_ = false;
+    renderQuickScore_(openMatchRow_);
+    history.pushState({ matchView: true }, '', location.href);
+    return;
+  }
+  closeMatchView_();
 });
 
 function startMatchViewPoll_() {
@@ -2356,7 +2373,22 @@ function renderQuickScoreForm_(r) {
       // scoreFor/scoreAgainst -- if someone else's edit landed inside the
       // same lock just before this one, the true result can differ from
       // what this tally alone would produce, and that's the value to show.
-      r['Score For'] = resultFor; r['Score Against'] = resultAgainst; r['Score Updated'] = new Date().toISOString();
+      const scoreUpdatedIso = new Date().toISOString();
+      r['Score For'] = resultFor; r['Score Against'] = resultAgainst; r['Score Updated'] = scoreUpdatedIso;
+      // r may not be the object actually sitting in allRows any more (2026-
+      // 08-19, reported directly: correct in the match view, wrong again
+      // the moment you go back to the list) -- a poll between opening this
+      // match and submitting now would have replaced allRows (and every
+      // list derived from it) with fresh objects, orphaning this one, same
+      // class of staleness refreshOpenMatchView_ was just fixed for. Sync
+      // the canonical entry too, then re-render every list view
+      // immediately, rather than leaving them to catch up whenever the
+      // next poll happens to land.
+      const canonical = allRows.find(row => row['Match ID'] === r['Match ID']);
+      if (canonical && canonical !== r) {
+        canonical['Score For'] = resultFor; canonical['Score Against'] = resultAgainst; canonical['Score Updated'] = scoreUpdatedIso;
+      }
+      render();
       errEl.style.display = 'none';
       // Stay in edit mode -- a live scorer taps this repeatedly through a
       // match, and re-confirming the warning dialog every single goal
