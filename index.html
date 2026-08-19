@@ -463,12 +463,12 @@
   /* ---------- Full-screen match view (adr-0020) ---------- */
   .match-view {
     position: fixed; inset: 0; z-index: 60; background: var(--bg);
-    overflow-y: auto; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
   .match-view[hidden] { display: none; }
   .match-view-topbar {
     position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px;
-    background: var(--panel); padding: 14px 16px; box-shadow: 0 1px 0 var(--border);
+    background: var(--panel); padding: 10px 16px; box-shadow: 0 1px 0 var(--border);
   }
   .match-view-back {
     border: none; background: var(--panel2); color: var(--text); width: 34px; height: 34px;
@@ -480,20 +480,24 @@
     border-radius: 999px; cursor: pointer; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
   }
   .match-view-share-btn.match-view-share-copied { background: var(--accent2-fill); color: #ffffff; }
-  .match-view-body { max-width: 560px; margin: 0 auto; padding: 20px 16px; }
-  .match-view-header { text-align: center; margin-bottom: 18px; }
-  .match-view-crests { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 10px; }
+  .match-view-body { max-width: 560px; margin: 0 auto; padding: 12px 16px; }
+  .match-view-header { text-align: center; margin-bottom: 8px; }
+  .match-view-crests { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 6px; }
   .match-view-crest-col { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 110px; }
   /* Deliberately a fixed white chip, not theme-aware (dark mode,
      2026-08-18) -- some crest files are JPGs with an opaque white
      background baked in (no transparency, unlike the PNGs), which would
      show as a jarring white square floating on a dark page otherwise.
      A consistent light backdrop for every crest, regardless of theme,
-     means it never matters which crests happen to have transparency. */
-  .match-view-crest-img { width: 56px; height: 56px; object-fit: contain; background: #ffffff; border-radius: 8px; padding: 4px; }
+     means it never matters which crests happen to have transparency.
+     Trimmed 56px -> 48px (2026-08-19) as part of fitting the enlarged
+     score/quick-score text on one screen without scrolling -- the crests
+     are identity, not the primary content here, so a small reduction
+     here rather than shrinking the score or the +/- buttons back down. */
+  .match-view-crest-img { width: 48px; height: 48px; object-fit: contain; background: #ffffff; border-radius: 8px; padding: 4px; }
   .match-view-crest-fallback {
-    width: 56px; height: 56px; border-radius: 999px; background: var(--panel2); color: var(--accent2);
-    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem;
+    width: 48px; height: 48px; border-radius: 999px; background: var(--panel2); color: var(--accent2);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem;
   }
   .match-view-crest-name { font-size: 0.8rem; font-weight: 600; text-align: center; line-height: 1.25; }
   /* Single source of truth for this page's score (adr-0020 amendment) --
@@ -501,7 +505,14 @@
      to show, and .match-view-score-live while the tally form is open so
      it's visually obvious the number updates live as +/- is tapped. */
   .match-view-vs { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
-  .match-view-score { font-size: 1.5rem; font-weight: 800; color: var(--text); white-space: nowrap; }
+  /* Bumped 1.5rem -> 2.1rem (2026-08-19) to sit in the same visual scale
+     as the enlarged +/- buttons below -- was reading as secondary/meta
+     next to them once those grew, when this is the actual live score,
+     the most important number on the page. See the .quick-score-btn
+     comment for the buttons' own sizing; .match-view-body's padding and
+     several margins here were trimmed in the same pass to keep the whole
+     view (crests through Submit) fitting one screen without scrolling. */
+  .match-view-score { font-size: 2.1rem; font-weight: 800; color: var(--text); white-space: nowrap; }
   .match-view-score-live { color: var(--accent2); }
   .match-view-meta { color: var(--muted); font-size: 0.9rem; }
   /* Goals+points combined into one number per side ("1-11" -> 14), shown
@@ -516,12 +527,16 @@
   .match-view-score-total { color: var(--text); font-size: 1.15rem; font-weight: 700; margin-top: -6px; }
 
   /* ---------- Quick Score tally (adr-0020, a +/- counter, not incremental live scoring) ---------- */
-  .quick-score { background: var(--panel); border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); margin-bottom: 16px; }
-  .quick-score-side { margin-bottom: 14px; }
+  .quick-score { background: var(--panel); border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); margin-bottom: 16px; }
+  .quick-score-side { margin-bottom: 10px; }
   .quick-score-side:last-child { margin-bottom: 0; }
-  .quick-score-side-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-  .quick-score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-  .quick-score-row-label { flex: 1; font-size: 0.85rem; color: var(--muted); }
+  .quick-score-side-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .quick-score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  /* Bumped alongside the buttons (2026-08-19) -- "Goal"/"Point" are the
+     labels actually being tapped against, not a caption, so they read
+     oddly small (0.85rem/muted) next to a 56px button. Bolder + closer
+     to --text than --muted for the same reason. */
+  .quick-score-row-label { flex: 1; font-size: 1.05rem; font-weight: 600; color: var(--text); }
   /* Significantly bigger than the original 34px (2026-08-19, reported
      directly as too small/fiddly for a thumb) -- 56px clears the 44px
      touch-target minimum (iOS HIG) with real room to spare, not just
@@ -538,7 +553,7 @@
     background: var(--accent2-fill); color: #ffffff; font-size: 1.8rem; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
-  .quick-score-save { width: 100%; margin-top: 12px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2-fill); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+  .quick-score-save { width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: none; background: var(--accent2-fill); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
   .quick-score-save:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
   /* One button, its label swapping between "Edit score"/"Add score" and
      "View" rather than a two-way toggle (2026-08-17) -- faded while
@@ -550,7 +565,7 @@
      closed -- a disabled element never fires a click at all, so tapping
      it did nothing with no explanation. Stays tappable, just faded, and
      tapping it opens scoreWindowClosedInfo explaining why. */
-  .quick-score-mode-row { text-align: center; margin-bottom: 12px; }
+  .quick-score-mode-row { text-align: center; margin-bottom: 8px; }
   .quick-score-mode-btn-unavailable { opacity: 0.5; }
   /* Outlined, not solid -- deliberately one visual step lighter than
      Submit's (and the dialog's Continue) solid fill. */
@@ -565,7 +580,7 @@
   .quick-score-meta { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; }
   .quick-score-status { text-align: center; color: var(--muted); font-size: 0.88rem; padding: 10px 0; }
 
-  .score-status { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 10px; }
+  .score-status { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
   .score-error { color: var(--warn); font-size: 0.8rem; margin-top: 8px; text-align: center; }
 
   /* ---------- More tab (adr-0020) -- informational only ---------- */
@@ -887,7 +902,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.8";
+const APP_VERSION = "26.08.19.9";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
