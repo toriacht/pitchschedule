@@ -3,17 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Sets data-theme on <html> before first paint, so a manual dark/light
-     override (More tab, 2026-08-18) doesn't flash the wrong palette while
-     the rest of the page loads. Absent key/value -> no attribute -> the
-     prefers-color-scheme media query below decides, same as before this
-     existed. -->
+<!-- Sets data-theme on <html> before first paint, so the real default
+     (dark, 2026-08-19 -- see the --pitch2/dark-mode comment near :root for
+     the rest of the palette) doesn't flash the wrong colours while the
+     rest of the page loads. Dark unless the More-tab toggle has been used
+     to explicitly turn it off; prefers-color-scheme is no longer part of
+     deciding the default at all (was, until 2026-08-19) -- it only still
+     matters as a no-JS fallback, via the @media block near :root. -->
 <script>
 (function() {
+  var theme = 'dark';
   try {
-    var t = localStorage.getItem('pitchScheduleTheme');
-    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    if (localStorage.getItem('pitchScheduleTheme') === 'light') theme = 'light';
   } catch (err) {}
+  document.documentElement.setAttribute('data-theme', theme);
 })();
 </script>
 <title>Athlone GAA</title>
@@ -93,10 +96,18 @@
      keeps the same distinctness without that harshness. Light mode's navy
      is untouched either way.
 
-     Two selectors, same values: the media query is what a user who's never
-     touched the toggle sees (follows the OS), `[data-theme="dark"]` is what
-     "Dark mode: on" forces regardless of OS. `:not([data-theme="light"])`
-     on the media-query version stops it fighting an explicit "off". */
+     Two selectors, same values, for two different reasons now (2026-08-19
+     -- dark became the real default, not just the system-preference
+     mirror it started as). `[data-theme="dark"]` is the one that matters
+     day to day: the <head> script sets it before first paint for
+     everyone who hasn't explicitly turned dark mode off, regardless of
+     what their OS is set to. The `@media` copy exists for the one case
+     the attribute alone can't cover: someone who explicitly chose light
+     (`data-theme="light"`) on a device whose OS is itself set to dark --
+     without `:not([data-theme="light"])` here, that `@media` rule would
+     still match on a dark-OS device and silently override their explicit
+     choice back to dark, since plain `:root`'s light values have lower
+     specificity than an attribute-qualified selector either way. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #0f172a; --panel: #1e293b; --panel2: #2c3b52; --text: #f1f5f9;
@@ -857,7 +868,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.4";
+const APP_VERSION = "26.08.19.5";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -895,39 +906,33 @@ function usagePingDeviceId_() {
   fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + params.toString()).catch(() => {});
 })();
 
-// ---- Dark mode toggle (adr-0021) ----
+// ---- Dark mode toggle (adr-0021, default flipped to dark 2026-08-19) ----
 // The <head> script already set data-theme from localStorage before first
-// paint (avoids a flash); this just keeps the toggle UI, the theme-color
-// meta tag, and future OS-preference changes in sync with that same value.
+// paint (avoids a flash); this just keeps the toggle UI and the
+// theme-color meta tag in sync with that same value. Dark is the default
+// now, not a mirror of the OS setting -- there's nothing left to listen
+// for on prefers-color-scheme changing, since it no longer affects the
+// outcome either way.
 const THEME_KEY = 'pitchScheduleTheme';
 function storedTheme_() {
   try {
     const t = localStorage.getItem(THEME_KEY);
     return (t === 'light' || t === 'dark') ? t : null;
   } catch (err) {
-    return null; // private browsing / quota -- falls back to system preference
+    return null; // private browsing / quota -- falls back to the dark default
   }
 }
 function effectiveTheme_() {
-  return storedTheme_() || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  return storedTheme_() || 'dark';
 }
 function applyTheme_() {
-  const stored = storedTheme_();
-  if (stored) document.documentElement.setAttribute('data-theme', stored);
-  else document.documentElement.removeAttribute('data-theme');
   const eff = effectiveTheme_();
+  document.documentElement.setAttribute('data-theme', eff);
   document.getElementById('themeColorMeta').setAttribute('content', eff === 'dark' ? '#0f172a' : '#1e6fb8');
   const toggle = document.getElementById('darkModeToggle');
   if (toggle) toggle.checked = eff === 'dark';
 }
 applyTheme_();
-// Only relevant while no explicit override is stored -- once the user's
-// touched the toggle, their choice sticks regardless of OS changes.
-if (window.matchMedia) {
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (!storedTheme_()) applyTheme_();
-  });
-}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
