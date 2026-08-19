@@ -933,7 +933,7 @@ const APP_STAGE = "beta";
 // YY.MM.DD.<push#> for the day, computed from git history so it can never
 // drift out of sync with what was actually pushed. See
 // docs/adr/adr-0016-date-based-app-version.md for why this isn't semver.
-const APP_VERSION = "26.08.19.14";
+const APP_VERSION = "26.08.19.15";
 const APP_VERSION_FULL = APP_STAGE ? `${APP_STAGE}-${APP_VERSION}` : APP_VERSION;
 
 // Fired here, before the PapaParse <script> tag below, so the two network
@@ -1053,6 +1053,12 @@ const GA_MEASUREMENT_ID = "G-DHDCTH97CS";
 // 2026-08-16 to 2026-08-17 to preview the score UI without waiting for a
 // live match. Must match Code.gs's SCORE_WINDOW_PREVIEW_OVERRIDE.
 const SCORE_WINDOW_PREVIEW_OVERRIDE = false;
+// TEMPORARY, same lifetime as Code.gs's TEST_MATCH_ENABLED (2026-08-19) --
+// must match its TEST_MATCH_ID exactly, since this only ever hides the
+// row from a couple of specific views (Home's Today's Matches preview,
+// the Schedule tab), never from Matches or the data itself; a mismatched
+// ID would just silently fail to hide anything, not error.
+const TEST_MATCH_ID = 'test-athlone-a-v-athlone-b';
 // =================================
 
 // ---------- Club crests (adr-0020) ----------
@@ -1560,6 +1566,10 @@ function renderSchedule() {
 
   const rows = allRows
     .filter(inWindow)
+    // Kept out of the general Schedule list on purpose (2026-08-19) --
+    // still fully reachable from the Matches tab, and from a direct
+    // ?match= link, this just keeps it from cluttering the everyday view.
+    .filter(r => r['Match ID'] !== TEST_MATCH_ID)
     .filter(r => !pitchFilter || (r.Pitch || '').trim() === pitchFilter)
     .filter(r => !filter || r.Team.toLowerCase().includes(filter))
     .filter(r => !matchesOnly || r.Type === 'Match')
@@ -1807,7 +1817,9 @@ function matchCardHtml_(r, idx, now) {
 let todayMatchesRows_ = [];
 function renderTodayMatchesPreview_() {
   const now = new Date();
-  const rows = allRows.filter(r => r.Type === 'Match' && sameDay(r.dateObj, now))
+  // Excluded here too, same reasoning as the Schedule tab -- see the
+  // TEST_MATCH_ID comment near the top of this script.
+  const rows = allRows.filter(r => r.Type === 'Match' && sameDay(r.dateObj, now) && r['Match ID'] !== TEST_MATCH_ID)
     .sort((a, b) => (a.time?.start ?? Infinity) - (b.time?.start ?? Infinity));
   todayMatchesRows_ = rows;
   const section = document.getElementById('todayMatchesSection');
